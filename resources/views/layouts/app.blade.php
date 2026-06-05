@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="csrf-token" content="{{ csrf_token() }}" />
+    <title>@yield('title', 'Lansia Papua')</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @stack('styles')
+</head>
+<body class="antialiased bg-gray-50 font-sans text-gray-800">
+
+<div class="flex h-screen overflow-hidden">
+
+    <!-- ═══════════════════════════════
+         SIDEBAR
+    ═══════════════════════════════ -->
+    <aside class="w-[260px] min-w-[260px] bg-[#0F1A2E] flex flex-col overflow-y-auto" id="sidebar">
+
+        <!-- Logo area -->
+        <div class="px-5 py-5 flex items-center gap-3 border-b border-white/10">
+            <div class="w-10 h-10 rounded-full bg-sky-500/15 border border-sky-500/30 flex items-center justify-center shrink-0">
+                <img src="{{ asset('images/logo-papua.svg') }}" alt="Logo" class="w-6 h-6 object-contain" />
+            </div>
+            <div>
+                <div class="text-white font-bold text-sm tracking-wide">LANSIA PAPUA</div>
+                <div class="text-[0.65rem] text-white/40 tracking-wider uppercase">Provinsi Papua</div>
+            </div>
+        </div>
+
+        <!-- User info -->
+        <div class="px-5 py-4 border-b border-white/10">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-sky-500/20 flex items-center justify-center text-sky-400 text-xs font-bold">
+                    {{ strtoupper(substr(auth()->user()->name, 0, 2)) }}
+                </div>
+                <div>
+                    <div class="text-white text-xs font-semibold">{{ auth()->user()->name }}</div>
+                    <div class="text-white/40 text-[0.65rem] capitalize">{{ auth()->user()->getRoleNames()->first() ?? 'User' }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 px-3 py-4 space-y-1">
+            @php
+                $role = auth()->user()->getRoleNames()->first();
+            @endphp
+
+            {{-- Menu berdasarkan role --}}
+            @if($role === 'administrator')
+                <x-sidebar-link href="{{ route('app.dashboard') }}" icon="home" :active="request()->routeIs('app.dashboard')">
+                    Beranda
+                </x-sidebar-link>
+                <x-sidebar-link href="{{ route('app.lansia.index') }}" icon="users" :active="request()->routeIs('app.lansia.*')">
+                    Data Lansia
+                </x-sidebar-link>
+                <x-sidebar-link href="{{ route('app.survey.create') }}" icon="clipboard" :active="request()->routeIs('app.survey.*')">
+                    Input Survey
+                </x-sidebar-link>
+                <x-sidebar-link href="{{ route('app.verification.index') }}" icon="check" :active="request()->routeIs('app.verification.*')">
+                    Verifikasi Survey
+                </x-sidebar-link>
+                <x-sidebar-link href="{{ route('app.export', ['format' => 'csv']) }}" icon="chart" :active="false">
+                    Export Data
+                </x-sidebar-link>
+            @elseif($role === 'surveyor')
+                <x-sidebar-link href="{{ route('app.dashboard') }}" icon="home" :active="request()->routeIs('app.dashboard')">
+                    Beranda
+                </x-sidebar-link>
+                <x-sidebar-link href="{{ route('app.survey.create') }}" icon="clipboard" :active="request()->routeIs('app.survey.*')">
+                    Input Survey
+                </x-sidebar-link>
+                <x-sidebar-link href="{{ route('app.lansia.index') }}" icon="users" :active="request()->routeIs('app.lansia.*')">
+                    Data Survey Saya
+                </x-sidebar-link>
+                <x-sidebar-link href="{{ route('app.export', ['format' => 'csv']) }}" icon="chart" :active="false">
+                    Export Data
+                </x-sidebar-link>
+            @elseif($role === 'verifikator')
+                <x-sidebar-link href="{{ route('app.dashboard') }}" icon="home" :active="request()->routeIs('app.dashboard')">
+                    Beranda
+                </x-sidebar-link>
+                <x-sidebar-link href="{{ route('app.verification.index') }}" icon="check" :active="request()->routeIs('app.verification.*')">
+                    Data Masuk Verifikasi
+                </x-sidebar-link>
+                <x-sidebar-link href="{{ route('app.lansia.index') }}" icon="users" :active="request()->routeIs('app.lansia.*')">
+                    Data Lansia
+                </x-sidebar-link>
+            @endif
+        </nav>
+
+        <!-- Logout -->
+        <div class="px-3 pb-4">
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button type="submit" class="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-medium text-white/40 hover:text-white/70 hover:bg-white/5 rounded-lg transition-colors cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                    Keluar
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- ═══════════════════════════════
+         MAIN CONTENT AREA
+    ═══════════════════════════════ -->
+    <main class="flex-1 flex flex-col overflow-hidden">
+
+        <!-- Top bar -->
+        <header class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 shrink-0">
+            <div>
+                <h1 class="text-sm font-semibold text-gray-800">@yield('page-title', 'Dashboard')</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="text-xs text-gray-400">{{ now()->translatedFormat('l, d F Y') }}</span>
+            </div>
+        </header>
+
+        <!-- Page content -->
+        <div class="flex-1 overflow-y-auto p-6">
+            @yield('content')
+        </div>
+    </main>
+
+</div>
+
+@stack('scripts')
+</body>
+</html>
