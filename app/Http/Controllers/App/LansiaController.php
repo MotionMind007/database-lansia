@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Region;
 use App\Models\SurveyResponse;
 use App\Models\User;
+use App\Support\SurveyResponseAccess;
 use Illuminate\Http\Request;
 
 class LansiaController extends Controller
@@ -13,28 +14,20 @@ class LansiaController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        $role = $user->getRoleNames()->first();
 
         $query = SurveyResponse::with(['respondent', 'surveyor', 'region'])
             ->select('survey_responses.*');
 
-        // Role-based data scoping
-        if ($role === 'surveyor') {
-            $query->where('surveyor_id', $user->id);
-        } elseif ($role === 'verifikator') {
-            $query->whereIn('status', [
-                SurveyResponse::STATUS_SUBMITTED,
-                SurveyResponse::STATUS_NEED_REVISION,
-            ]);
-        }
-        // Administrator sees all
+        SurveyResponseAccess::applyVisibleScope($query, $user);
 
         // Filters
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->whereHas('respondent', function ($q) use ($search) {
-                $q->where('full_name', 'ilike', "%{$search}%");
-            })->orWhere('questionnaire_number', 'ilike', "%{$search}%");
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('respondent', function ($respondentQuery) use ($search) {
+                    $respondentQuery->where('full_name', 'ilike', "%{$search}%");
+                })->orWhere('questionnaire_number', 'ilike', "%{$search}%");
+            });
         }
 
         if ($request->filled('status')) {
@@ -52,7 +45,7 @@ class LansiaController extends Controller
         $responses = $query->orderByDesc('created_at')->paginate(25)->withQueryString();
 
         // Filter options
-        $regions   = Region::active()->village()->with('parent.parent')->get();
+        $regions = Region::active()->village()->with('parent.parent')->get();
         $surveyors = User::role('surveyor')->where('is_active', true)->get(['id', 'name']);
 
         return view('app.lansia.index', compact('responses', 'regions', 'surveyors'));
@@ -61,20 +54,19 @@ class LansiaController extends Controller
     public function show($id)
     {
         $user = auth()->user();
-        $role = $user->getRoleNames()->first();
 
-        $response = SurveyResponse::with([
+        $query = SurveyResponse::with([
             'respondent.familyMembers',
             'respondent.documents',
+            'answers',
             'surveyor',
             'region.parent.parent',
             'verificationLogs.verifier',
-        ])->findOrFail($id);
+        ]);
 
-        // Surveyor hanya bisa lihat miliknya
-        if ($role === 'surveyor' && $response->surveyor_id !== $user->id) {
-            abort(403, 'Anda tidak memiliki akses ke data ini.');
-        }
+        SurveyResponseAccess::applyVisibleScope($query, $user);
+
+        $response = $query->findOrFail($id);
 
         return view('app.lansia.show', compact('response'));
     }

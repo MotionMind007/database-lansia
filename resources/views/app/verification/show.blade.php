@@ -131,7 +131,7 @@
                     <div class="border border-gray-100 rounded-lg p-3 flex items-center gap-3">
                         <div class="w-10 h-10 bg-sky-50 rounded-lg flex items-center justify-center shrink-0">
                             @if(str_contains($doc->mime_type, 'image'))
-                            <img src="{{ asset('storage/' . $doc->file_path) }}" class="w-10 h-10 rounded-lg object-cover" />
+                            <img src="{{ route('app.documents.show', $doc) }}" class="w-10 h-10 rounded-lg object-cover" />
                             @else
                             <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                             @endif
@@ -140,7 +140,7 @@
                             <div class="text-xs font-semibold text-gray-700">{{ $doc->type_label }}</div>
                             <div class="text-[0.6rem] text-gray-400 truncate">{{ $doc->file_name }}</div>
                         </div>
-                        <a href="{{ asset('storage/' . $doc->file_path) }}" target="_blank" class="text-[0.65rem] text-sky-500 hover:text-sky-600 font-medium shrink-0">Lihat</a>
+                        <a href="{{ route('app.documents.show', $doc) }}" target="_blank" class="text-[0.65rem] text-sky-500 hover:text-sky-600 font-medium shrink-0">Lihat</a>
                     </div>
                     @endforeach
                 </div>

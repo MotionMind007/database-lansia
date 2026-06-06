@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\App\DashboardController;
+use App\Http\Controllers\App\DocumentController;
 use App\Http\Controllers\App\ExportController;
 use App\Http\Controllers\App\LansiaController;
 use App\Http\Controllers\App\SurveyController;
@@ -17,7 +18,7 @@ Route::get('/', function () {
 // Auth routes (hanya untuk guest)
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLogin'])->name('login');
-    Route::post('/login', [LoginController::class, 'login']);
+    Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:5,1');
 });
 
 // Logout
@@ -41,6 +42,8 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
     Route::middleware(CheckRole::class . ':administrator,surveyor')->group(function () {
         Route::get('/survey/create', [SurveyController::class, 'create'])->name('survey.create');
         Route::post('/survey', [SurveyController::class, 'store'])->name('survey.store');
+        Route::get('/survey/{id}/edit', [SurveyController::class, 'edit'])->name('survey.edit');
+        Route::put('/survey/{id}', [SurveyController::class, 'update'])->name('survey.update');
     });
 
     // Verifikasi (Administrator + Verifikator only)
@@ -50,8 +53,13 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
         Route::post('/{id}/verify', [VerificationController::class, 'verify'])->name('verify');
     });
 
+    // Dokumen pendukung (authorized file serving)
+    Route::get('/documents/{document}', [DocumentController::class, 'show'])->name('documents.show');
+
     // Export (Administrator + Surveyor)
-    Route::get('/export', [ExportController::class, 'export'])->name('export');
+    Route::get('/export', [ExportController::class, 'export'])
+        ->middleware(CheckRole::class . ':administrator,surveyor')
+        ->name('export');
 
     // AJAX: Wilayah cascade
     Route::get('/wilayah/districts', [SurveyController::class, 'getDistricts'])->name('wilayah.districts');

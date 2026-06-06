@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 
 class RoleAndUserSeeder extends Seeder
@@ -22,7 +23,7 @@ class RoleAndUserSeeder extends Seeder
             [
                 'name' => 'Administrator',
                 'username' => 'admin',
-                'password' => Hash::make('password'),
+                'password' => Hash::make($this->passwordFromEnvironment('LANSIA_ADMIN_PASSWORD')),
                 'is_active' => true,
             ]
         );
@@ -34,7 +35,7 @@ class RoleAndUserSeeder extends Seeder
             [
                 'name' => 'Surveyor Demo',
                 'username' => 'surveyor',
-                'password' => Hash::make('password'),
+                'password' => Hash::make($this->passwordFromEnvironment('LANSIA_SURVEYOR_PASSWORD')),
                 'is_active' => true,
             ]
         );
@@ -46,10 +47,23 @@ class RoleAndUserSeeder extends Seeder
             [
                 'name' => 'Verifikator Demo',
                 'username' => 'verifikator',
-                'password' => Hash::make('password'),
+                'password' => Hash::make($this->passwordFromEnvironment('LANSIA_VERIFIKATOR_PASSWORD')),
                 'is_active' => true,
             ]
         );
         $verifikatorUser->assignRole($verifikator);
+    }
+
+    private function passwordFromEnvironment(string $key): string
+    {
+        $password = env($key);
+
+        if (is_string($password) && strlen($password) >= 12) {
+            return $password;
+        }
+
+        $this->command?->warn("{$key} is missing or shorter than 12 characters; generated a random password for this seeded user.");
+
+        return Str::password(32);
     }
 }

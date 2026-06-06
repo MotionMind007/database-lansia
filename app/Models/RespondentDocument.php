@@ -22,6 +22,11 @@ class RespondentDocument extends Model
         return $this->belongsTo(Respondent::class);
     }
 
+    public function surveyResponse(): BelongsTo
+    {
+        return $this->belongsTo(SurveyResponse::class);
+    }
+
     public function uploader(): BelongsTo
     {
         return $this->belongsTo(User::class, 'uploaded_by');
@@ -30,11 +35,11 @@ class RespondentDocument extends Model
     public function getTypeLabelAttribute(): string
     {
         return match ($this->document_type) {
-            'ktp'           => 'KTP',
-            'kk'            => 'Kartu Keluarga',
-            'surat_domisili'=> 'Surat Domisili',
-            'foto_rumah'    => 'Foto Kondisi Rumah',
-            default         => 'Dokumen Lainnya',
+            'ktp' => 'KTP',
+            'kk' => 'Kartu Keluarga',
+            'surat_domisili' => 'Surat Domisili',
+            'foto_rumah' => 'Foto Kondisi Rumah',
+            default => 'Dokumen Lainnya',
         };
     }
 }

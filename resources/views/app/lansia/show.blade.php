@@ -31,6 +31,44 @@
     ];
     $statusBadge = $statusColors[$resp->status] ?? $statusColors['draft'];
     $answers = $resp->answers->first()?->answer_json ?? [];
+
+    // Label mappings for coded values
+    $labelMaps = [
+        'pola_konsumsi' => [
+            'a' => 'Nasi/Ubi',
+            'b' => 'Nasi/Ubi dan Sayur',
+            'c' => 'Nasi/Ubi, Sayur, Daging/Ikan/Telur',
+            'd' => 'Nasi/Ubi, Sayur, Daging/Ikan/Telur dan Susu',
+            'e' => 'Nasi/Ubi, Sayur, Daging/Ikan/Telur, Susu dan Buah',
+        ],
+        'konsumsi_hari' => ['1' => '1 Kali Sehari', '2' => '2 Kali Sehari', '3' => '3 Kali Sehari'],
+        'keluhan_kes' => ['ya' => 'Ya', 'tidak' => 'Tidak'],
+        'periksa_rutin' => ['ya' => 'Ya', 'tidak' => 'Tidak'],
+        'jangkau_kes' => ['kurang_30' => '< 30 Menit', '30_60' => '30-60 Menit', '1_5_jam' => '1-5 Jam', 'lebih_5jam' => '> 5 Jam'],
+        'status_rumah' => ['milik_sendiri' => 'Milik Sendiri', 'sewa_kontrak' => 'Sewa/Kontrak', 'rumah_dinas' => 'Rumah Dinas', 'bantuan_pemerintah' => 'Bantuan Pemerintah', 'lainnya' => 'Lainnya'],
+        'jenis_rumah' => ['permanen' => 'Permanen', 'semi_permanen' => 'Semi Permanen', 'kayu_papan' => 'Kayu/Papan', 'kayu_tanah' => 'Kayu/Tanah', 'rumah_adat' => 'Rumah Adat', 'lainnya' => 'Lainnya'],
+        'mck' => ['pribadi' => 'Pribadi', 'umum' => 'Umum', 'tidak_ada' => 'Tidak Ada'],
+        'lama_penerangan' => ['24jam' => '24 Jam', '12jam' => '12 Jam', '6jam' => '6 Jam', 'kurang_6jam' => '< 6 Jam', 'tidak_ada' => 'Tidak Ada'],
+        'punya_hp' => ['ya' => 'Ya', 'tidak' => 'Tidak'],
+        'bansos' => ['pernah' => 'Pernah', 'tidak' => 'Tidak'],
+        'jamsosial' => ['pernah' => 'Pernah', 'tidak' => 'Tidak'],
+        'pelatihan_lansia' => ['pernah' => 'Pernah', 'tidak' => 'Tidak'],
+        'bansos_sembako' => ['pernah' => 'Pernah', 'tidak' => 'Tidak'],
+        'kunjungi' => ['on' => 'Ya', 'off' => 'Tidak'],
+    ];
+
+    // Helper to resolve label
+    $getLabel = function($key, $value) use ($labelMaps) {
+        if (is_array($value)) {
+            $mapped = array_map(function($v) use ($key, $labelMaps) {
+                if (isset($labelMaps[$key][$v])) return $labelMaps[$key][$v];
+                return ucwords(str_replace('_', ' ', $v));
+            }, $value);
+            return implode(', ', $mapped);
+        }
+        if (isset($labelMaps[$key][$value])) return $labelMaps[$key][$value];
+        return ucwords(str_replace('_', ' ', $value));
+    };
 @endphp
 
 @section('content')
@@ -46,9 +84,13 @@
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
         <div class="flex items-start justify-between">
             <div class="flex items-center gap-5">
+                @if($respondent->photo_path)
+                <img src="{{ asset('storage/' . $respondent->photo_path) }}" alt="{{ $respondent->full_name }}" class="w-20 h-20 rounded-xl object-cover shrink-0" />
+                @else
                 <div class="w-20 h-20 rounded-xl bg-sky-100 flex items-center justify-center text-sky-500 text-xl font-bold shrink-0">
                     {{ $initials }}
                 </div>
+                @endif
                 <div>
                     <h2 class="text-lg font-bold text-gray-800">{{ $respondent->full_name }}</h2>
                     <div class="flex flex-wrap items-center gap-3 mt-1">
@@ -66,6 +108,13 @@
                     </div>
                 </div>
             </div>
+            @if(in_array($resp->status, ['need_revision', 'draft']) && (auth()->user()->hasRole('administrator') || $resp->surveyor_id === auth()->id()))
+            <a href="{{ route('app.survey.edit', $resp->id) }}"
+               class="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold px-4 py-2.5 rounded-lg shadow-sm transition-colors cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                Revisi Data
+            </a>
+            @endif
         </div>
         <div class="text-[0.65rem] text-gray-400 mt-3">
             Surveyor: {{ $resp->surveyor?->name }} &nbsp;|&nbsp;
@@ -124,26 +173,53 @@
                     </div>
                 </div>
 
+                {{-- Profil Rumah Tangga --}}
+                @if(isset($answers['jml_anggota']) || $respondent->household_status)
+                <div class="mt-6">
+                    <h4 class="text-xs font-bold text-gray-600 mb-3 uppercase tracking-wider">Profil Rumah Tangga</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-10">
+                        <div>
+                            @if($respondent->household_status)
+                            <div class="field-row">
+                                <span class="field-label">Status dalam Rumah Tangga</span>
+                                <span class="field-value">: {{ $respondent->household_status }}</span>
+                            </div>
+                            @endif
+                            @if(isset($answers['jml_anggota']))
+                            <div class="field-row">
+                                <span class="field-label">Jumlah Anggota Keluarga</span>
+                                <span class="field-value">: {{ $answers['jml_anggota'] }}</span>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                @endif
+
                 @if($respondent->familyMembers->count() > 0)
                 <div class="mt-6">
-                    <h4 class="text-xs font-bold text-gray-600 mb-3 uppercase tracking-wider">Anggota Keluarga</h4>
+                    <h4 class="text-xs font-bold text-gray-600 mb-3 uppercase tracking-wider">Identitas Anggota Keluarga Lansia</h4>
                     <div class="overflow-x-auto border border-gray-100 rounded-xl">
                         <table class="w-full text-xs">
                             <thead><tr class="bg-gray-50/80">
                                 <th class="text-left px-3 py-2.5 font-semibold text-gray-500">No.</th>
                                 <th class="text-left px-3 py-2.5 font-semibold text-gray-500">Nama</th>
-                                <th class="text-left px-3 py-2.5 font-semibold text-gray-500">Kelamin</th>
+                                <th class="text-left px-3 py-2.5 font-semibold text-gray-500">Jenis Kelamin</th>
                                 <th class="text-left px-3 py-2.5 font-semibold text-gray-500">Umur</th>
                                 <th class="text-left px-3 py-2.5 font-semibold text-gray-500">Status</th>
+                                <th class="text-left px-3 py-2.5 font-semibold text-gray-500">Pendidikan</th>
+                                <th class="text-left px-3 py-2.5 font-semibold text-gray-500">Status KTP</th>
                             </tr></thead>
                             <tbody>
                                 @foreach($respondent->familyMembers as $i => $fm)
                                 <tr class="border-t border-gray-50">
                                     <td class="px-3 py-2.5">{{ $i + 1 }}</td>
                                     <td class="px-3 py-2.5 font-medium">{{ $fm->name }}</td>
-                                    <td class="px-3 py-2.5">{{ $fm->gender === 'male' ? 'L' : 'P' }}</td>
-                                    <td class="px-3 py-2.5">{{ $fm->age ?? '-' }}</td>
+                                    <td class="px-3 py-2.5">{{ $fm->gender === 'Laki-laki' ? 'Laki-laki' : ($fm->gender === 'Perempuan' ? 'Perempuan' : ($fm->gender === 'male' ? 'Laki-laki' : 'Perempuan')) }}</td>
+                                    <td class="px-3 py-2.5">{{ $fm->age ?? '-' }} Tahun</td>
                                     <td class="px-3 py-2.5">{{ $fm->status ?? '-' }}</td>
+                                    <td class="px-3 py-2.5">{{ $fm->education ?? '-' }}</td>
+                                    <td class="px-3 py-2.5">{{ $fm->ktp_status ?? '-' }}</td>
                                 </tr>
                                 @endforeach
                             </tbody>
@@ -165,7 +241,7 @@
                                 @if(isset($answers[$key]))
                                 <div class="flex justify-between py-1.5 border-b border-white text-xs">
                                     <span class="text-gray-500">{{ $label }}</span>
-                                    <span class="text-gray-800 font-medium">{{ is_array($answers[$key]) ? implode(', ', $answers[$key]) : $answers[$key] }}</span>
+                                    <span class="text-gray-800 font-medium">{{ $getLabel($key, $answers[$key]) }}</span>
                                 </div>
                                 @endif
                             @endforeach
@@ -179,7 +255,7 @@
                                 @if(isset($answers[$key]))
                                 <div class="flex justify-between py-1.5 border-b border-white text-xs">
                                     <span class="text-gray-500">{{ $label }}</span>
-                                    <span class="text-gray-800 font-medium">{{ is_array($answers[$key]) ? implode(', ', $answers[$key]) : $answers[$key] }}</span>
+                                    <span class="text-gray-800 font-medium">{{ $getLabel($key, $answers[$key]) }}</span>
                                 </div>
                                 @endif
                             @endforeach
@@ -226,7 +302,7 @@
                                 @if(isset($answers[$key]))
                                 <div class="flex justify-between py-1.5 border-b border-white text-xs">
                                     <span class="text-gray-500">{{ $label }}</span>
-                                    <span class="text-gray-800 font-medium">{{ is_array($answers[$key]) ? implode(', ', $answers[$key]) : $answers[$key] }}</span>
+                                    <span class="text-gray-800 font-medium">{{ $getLabel($key, $answers[$key]) }}</span>
                                 </div>
                                 @endif
                             @endforeach
@@ -240,7 +316,7 @@
                                 @if(isset($answers[$key]))
                                 <div class="flex justify-between py-1.5 border-b border-white text-xs">
                                     <span class="text-gray-500">{{ $label }}</span>
-                                    <span class="text-gray-800 font-medium">{{ is_array($answers[$key]) ? implode(', ', $answers[$key]) : $answers[$key] }}</span>
+                                    <span class="text-gray-800 font-medium">{{ $getLabel($key, $answers[$key]) }}</span>
                                 </div>
                                 @endif
                             @endforeach
@@ -254,7 +330,7 @@
                                 @if(isset($answers[$key]))
                                 <div class="flex justify-between py-1.5 border-b border-white text-xs">
                                     <span class="text-gray-500">{{ $label }}</span>
-                                    <span class="text-gray-800 font-medium">{{ is_array($answers[$key]) ? implode(', ', $answers[$key]) : $answers[$key] }}</span>
+                                    <span class="text-gray-800 font-medium">{{ $getLabel($key, $answers[$key]) }}</span>
                                 </div>
                                 @endif
                             @endforeach
@@ -283,7 +359,7 @@
                         </div>
                         <div class="text-xs font-semibold text-gray-700 mb-1">{{ $doc->type_label }}</div>
                         <div class="text-[0.65rem] text-gray-400 truncate">{{ $doc->file_name }}</div>
-                        <a href="{{ asset('storage/' . $doc->file_path) }}" target="_blank" class="inline-block mt-2 text-[0.65rem] text-sky-500 hover:text-sky-600 font-medium">Lihat</a>
+                        <a href="{{ route('app.documents.show', $doc) }}" target="_blank" class="inline-block mt-2 text-[0.65rem] text-sky-500 hover:text-sky-600 font-medium">Lihat</a>
                     </div>
                     @endforeach
                 </div>
@@ -324,7 +400,7 @@
                     <div class="flex gap-3 p-4 bg-gray-50 rounded-xl">
                         <div class="w-2 h-2 mt-1.5 rounded-full {{ $log->status === 'verified' ? 'bg-green-500' : ($log->status === 'need_revision' ? 'bg-orange-500' : 'bg-sky-500') }} shrink-0"></div>
                         <div>
-                            <div class="text-xs font-semibold text-gray-700">{{ ucfirst(str_replace('_', ' ', $log->status)) }} — {{ $log->verified_at->format('d M Y, H:i') }}</div>
+                            <div class="text-xs font-semibold text-gray-700">{{ ucwords(str_replace('_', ' ', $log->status)) }} — {{ $log->verified_at->format('d M Y, H:i') }}</div>
                             <div class="text-xs text-gray-400 mt-0.5">oleh {{ $log->verifier?->name ?? '-' }}</div>
                             @if($log->note)
                             <div class="text-xs text-gray-500 mt-1">{{ $log->note }}</div>

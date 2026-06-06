@@ -52,7 +52,7 @@ class SurveyResponse extends Model
 
     public function getStatusLabelAttribute(): string
     {
-        return self::statusLabels()[$this->status] ?? $this->status;
+        return self::statusLabels()[$this->status] ?? ucwords(str_replace('_', ' ', $this->status));
     }
 
     public function respondent(): BelongsTo

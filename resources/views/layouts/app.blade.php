@@ -53,7 +53,7 @@
             {{-- Menu berdasarkan role --}}
             @if($role === 'administrator')
                 <x-sidebar-link href="{{ route('app.dashboard') }}" icon="home" :active="request()->routeIs('app.dashboard')">
-                    Beranda
+                    Dashboard
                 </x-sidebar-link>
                 <x-sidebar-link href="{{ route('app.lansia.index') }}" icon="users" :active="request()->routeIs('app.lansia.*')">
                     Data Lansia

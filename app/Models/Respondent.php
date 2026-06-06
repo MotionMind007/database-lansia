@@ -11,7 +11,7 @@ class Respondent extends Model
     protected $fillable = [
         'full_name', 'gender', 'age', 'education', 'occupation',
         'address', 'phone', 'religion', 'ethnicity',
-        'citizenship_status', 'household_status', 'region_id',
+        'citizenship_status', 'household_status', 'region_id', 'photo_path',
     ];
 
     public function region(): BelongsTo

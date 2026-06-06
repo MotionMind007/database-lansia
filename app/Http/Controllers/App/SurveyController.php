@@ -22,8 +22,9 @@ class SurveyController extends Controller
     {
         // Langsung tampilkan Kabupaten/Kota (child dari Provinsi Papua)
         $province = Region::active()->province()->first();
-        $cities   = $province ? Region::active()->city()->where('parent_id', $province->id)->orderBy('name')->get() : collect();
-        $survey   = Survey::where('is_active', true)->first();
+        $cities = $province ? Region::active()->city()->where('parent_id', $province->id)->orderBy('name')->get() : collect();
+        $survey = Survey::where('is_active', true)->first();
+
         return view('app.survey.create', compact('cities', 'survey'));
     }
 
@@ -34,47 +35,78 @@ class SurveyController extends Controller
     {
         $request->validate([
             'questionnaire_number' => ['required', 'string', 'unique:survey_responses,questionnaire_number'],
-            'region_id'            => ['required', 'exists:regions,id'],
-            'interview_date'       => ['required', 'date'],
-            'full_name'            => ['required', 'string', 'max:255'],
-            'gender'               => ['required', 'in:male,female'],
-            'age'                  => ['required', 'integer', 'min:1', 'max:150'],
+            'region_id' => ['required', 'exists:regions,id'],
+            'interview_date' => ['required', 'date'],
+            'full_name' => ['required', 'string', 'max:255'],
+            'gender' => ['required', 'in:male,female'],
+            'age' => ['required', 'integer', 'min:1', 'max:150'],
+            'documents' => ['nullable', 'array'],
+            'documents.*' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'photo' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:2048'],
         ], [
             'questionnaire_number.unique' => 'Nomor kuesioner sudah digunakan.',
-            'full_name.required'          => 'Nama lengkap wajib diisi.',
-            'gender.required'             => 'Jenis kelamin wajib dipilih.',
-            'age.required'                => 'Umur wajib diisi.',
+            'full_name.required' => 'Nama lengkap wajib diisi.',
+            'gender.required' => 'Jenis kelamin wajib dipilih.',
+            'age.required' => 'Umur wajib diisi.',
+            'documents.*.mimes' => 'Dokumen harus berupa JPG, PNG, atau PDF.',
+            'documents.*.max' => 'Ukuran dokumen maksimal 5MB.',
+            'photo.mimes' => 'Foto harus berupa JPG atau PNG.',
+            'photo.max' => 'Ukuran foto maksimal 2MB.',
         ]);
 
         DB::transaction(function () use ($request) {
             // 1. Simpan respondent
             $respondent = Respondent::create([
-                'full_name'          => $request->full_name,
-                'gender'             => $request->gender,
-                'age'                => $request->age,
-                'education'          => $request->education,
-                'occupation'         => $request->occupation,
-                'address'            => $request->address,
-                'phone'              => $request->phone,
-                'religion'           => $request->religion,
-                'ethnicity'          => $request->ethnicity,
+                'full_name' => $request->full_name,
+                'gender' => $request->gender,
+                'age' => $request->age,
+                'education' => $request->education,
+                'occupation' => $request->occupation,
+                'address' => $request->address,
+                'phone' => $request->phone,
+                'religion' => $request->religion,
+                'ethnicity' => $request->ethnicity,
                 'citizenship_status' => $request->status_oap ?? 'WNI',
-                'household_status'   => $request->household_status,
-                'region_id'          => $request->region_id,
+                'household_status' => $request->household_status,
+                'region_id' => $request->region_id,
             ]);
+
+            // Upload foto profil
+            if ($request->hasFile('photo') && $request->file('photo')->isValid()) {
+                $photoPath = $request->file('photo')->store('photos/'.$respondent->id, 'public');
+                $respondent->update(['photo_path' => $photoPath]);
+            }
 
             // 2. Simpan anggota keluarga (B2)
             if ($request->has('rt_nama')) {
                 foreach ($request->rt_nama as $i => $nama) {
-                    if (empty($nama)) continue;
+                    if (empty($nama)) {
+                        continue;
+                    }
+                    $gender = $request->rt_gender[$i] ?? null;
+                    if ($gender === 'Laki-laki') $gender = 'male';
+                    elseif ($gender === 'Perempuan') $gender = 'female';
+
+                    // Pendidikan dari C3 (edu_1, edu_2, ...) — index 1-based
+                    $eduKey = 'edu_' . ($i + 1);
+                    $education = $request->input($eduKey);
+
+                    // KTP dari E6 (ktp_1, ktp_2, ...) — index 1-based
+                    $ktpKey = 'ktp_' . ($i + 1);
+                    $ktpStatus = $this->normalizeKtpStatus($request->input($ktpKey));
+
+                    $occupationKey = 'pek_' . ($i + 1);
+                    $occupation = $request->input($occupationKey);
+
                     FamilyMember::create([
                         'respondent_id' => $respondent->id,
-                        'name'          => $nama,
-                        'gender'        => $request->rt_gender[$i] ?? null,
-                        'age'           => $request->rt_umur[$i] ?? null,
-                        'status'        => $request->rt_status[$i] ?? null,
-                        'education'     => $request->rt_edu[$i] ?? null,
-                        'ktp_status'    => $request->rt_ktp[$i] ?? null,
+                        'name' => $nama,
+                        'gender' => $gender,
+                        'age' => $request->rt_umur[$i] ?? null,
+                        'status' => $request->rt_status[$i] ?? null,
+                        'education' => $education,
+                        'occupation' => $occupation,
+                        'ktp_status' => $ktpStatus,
                     ]);
                 }
             }
@@ -84,46 +116,48 @@ class SurveyController extends Controller
             // 3. Simpan survey response
             $survey = Survey::where('is_active', true)->first();
             $response = SurveyResponse::create([
-                'survey_id'            => $survey?->id ?? 1,
-                'respondent_id'        => $respondent->id,
+                'survey_id' => $survey?->id ?? 1,
+                'respondent_id' => $respondent->id,
                 'questionnaire_number' => $request->questionnaire_number,
-                'surveyor_id'          => auth()->id(),
-                'region_id'            => $request->region_id,
-                'interview_date'       => $request->interview_date,
-                'status'               => $isDraft ? SurveyResponse::STATUS_DRAFT : SurveyResponse::STATUS_SUBMITTED,
-                'surveyor_notes'       => $request->surveyor_notes,
-                'submitted_at'         => $isDraft ? null : now(),
-                'created_by'           => auth()->id(),
-                'updated_by'           => auth()->id(),
+                'surveyor_id' => auth()->id(),
+                'region_id' => $request->region_id,
+                'interview_date' => $request->interview_date,
+                'status' => $isDraft ? SurveyResponse::STATUS_DRAFT : SurveyResponse::STATUS_SUBMITTED,
+                'surveyor_notes' => $request->surveyor_notes,
+                'submitted_at' => $isDraft ? null : now(),
+                'created_by' => auth()->id(),
+                'updated_by' => auth()->id(),
             ]);
 
             // 4. Simpan jawaban kuesioner sebagai JSON bulk (satu record per response)
             $answers = $this->extractAnswers($request);
-            $answersFiltered = array_filter($answers, fn($v) => $v !== null && $v !== '' && $v !== []);
+            $answersFiltered = array_filter($answers, fn ($v) => $v !== null && $v !== '' && $v !== []);
 
             if (! empty($answersFiltered)) {
                 SurveyAnswer::create([
                     'survey_response_id' => $response->id,
-                    'question_id'        => null,
-                    'answer_json'        => $answersFiltered,
+                    'question_id' => null,
+                    'answer_json' => $answersFiltered,
                 ]);
             }
 
             // 5. Upload dokumen pendukung
             if ($request->hasFile('documents')) {
                 foreach ($request->file('documents') as $type => $file) {
-                    if (! $file || ! $file->isValid()) continue;
-                    $path = $file->store('documents/' . $respondent->id, 'public');
+                    if (! $file || ! $file->isValid()) {
+                        continue;
+                    }
+                    $path = $file->store('documents/'.$respondent->id, 'local');
                     RespondentDocument::create([
-                        'respondent_id'      => $respondent->id,
+                        'respondent_id' => $respondent->id,
                         'survey_response_id' => $response->id,
-                        'document_type'      => $type,
-                        'file_path'          => $path,
-                        'file_name'          => $file->getClientOriginalName(),
-                        'mime_type'          => $file->getMimeType(),
-                        'file_size'          => $file->getSize(),
-                        'is_latest'          => true,
-                        'uploaded_by'        => auth()->id(),
+                        'document_type' => $type,
+                        'file_path' => $path,
+                        'file_name' => $file->getClientOriginalName(),
+                        'mime_type' => $file->getMimeType(),
+                        'file_size' => $file->getSize(),
+                        'is_latest' => true,
+                        'uploaded_by' => auth()->id(),
                     ]);
                 }
             }
@@ -137,60 +171,271 @@ class SurveyController extends Controller
     }
 
     /**
+     * Show the survey edit form (for revision).
+     */
+    public function edit($id)
+    {
+        $response = SurveyResponse::with(['respondent.familyMembers', 'answers', 'region.parent.parent', 'surveyor'])->findOrFail($id);
+
+        // Only allow edit if status is need_revision or draft, and user is the surveyor or admin
+        $user = auth()->user();
+        if (! in_array($response->status, [SurveyResponse::STATUS_NEED_REVISION, SurveyResponse::STATUS_DRAFT])) {
+            abort(403, 'Data ini tidak dapat direvisi.');
+        }
+
+        if (! $user->hasRole('administrator') && $response->surveyor_id !== $user->id) {
+            abort(403, 'Anda tidak memiliki akses untuk merevisi data ini.');
+        }
+
+        $province = Region::active()->province()->first();
+        $cities = $province ? Region::active()->city()->where('parent_id', $province->id)->orderBy('name')->get() : collect();
+        $survey = Survey::where('is_active', true)->first();
+
+        $respondent = $response->respondent;
+        $answers = $response->answers->first()?->answer_json ?? [];
+
+        // Get region hierarchy for pre-selecting dropdowns
+        $region = $response->region;
+        $selectedVillage = $region;
+        $selectedDistrict = $region?->parent;
+        $selectedCity = $selectedDistrict?->parent;
+
+        $districts = $selectedCity ? Region::active()->district()->where('parent_id', $selectedCity->id)->orderBy('name')->get() : collect();
+        $villages = $selectedDistrict ? Region::active()->village()->where('parent_id', $selectedDistrict->id)->orderBy('name')->get() : collect();
+
+        return view('app.survey.edit', compact(
+            'response', 'respondent', 'answers', 'cities', 'districts', 'villages',
+            'survey', 'selectedCity', 'selectedDistrict', 'selectedVillage'
+        ));
+    }
+
+    /**
+     * Update the survey (revision).
+     */
+    public function update(Request $request, $id)
+    {
+        $response = SurveyResponse::with(['respondent.familyMembers', 'answers'])->findOrFail($id);
+
+        $user = auth()->user();
+        if (! in_array($response->status, [SurveyResponse::STATUS_NEED_REVISION, SurveyResponse::STATUS_DRAFT])) {
+            abort(403, 'Data ini tidak dapat direvisi.');
+        }
+
+        if (! $user->hasRole('administrator') && $response->surveyor_id !== $user->id) {
+            abort(403, 'Anda tidak memiliki akses untuk merevisi data ini.');
+        }
+
+        $request->validate([
+            'questionnaire_number' => ['required', 'string', 'unique:survey_responses,questionnaire_number,'.$id],
+            'region_id' => ['required', 'exists:regions,id'],
+            'interview_date' => ['required', 'date'],
+            'full_name' => ['required', 'string', 'max:255'],
+            'gender' => ['required', 'in:male,female'],
+            'age' => ['required', 'integer', 'min:1', 'max:150'],
+            'documents' => ['nullable', 'array'],
+            'documents.*' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'photo' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:2048'],
+        ]);
+
+        DB::transaction(function () use ($request, $response) {
+            $respondent = $response->respondent;
+
+            // 1. Update respondent
+            $respondent->update([
+                'full_name' => $request->full_name,
+                'gender' => $request->gender,
+                'age' => $request->age,
+                'education' => $request->education,
+                'occupation' => $request->occupation,
+                'address' => $request->address,
+                'phone' => $request->phone,
+                'religion' => $request->religion,
+                'ethnicity' => $request->ethnicity,
+                'citizenship_status' => $request->status_oap ?? $respondent->citizenship_status,
+                'household_status' => $request->household_status,
+                'region_id' => $request->region_id,
+            ]);
+
+            // Upload foto profil baru (jika ada)
+            if ($request->hasFile('photo') && $request->file('photo')->isValid()) {
+                $photoPath = $request->file('photo')->store('photos/'.$respondent->id, 'public');
+                $respondent->update(['photo_path' => $photoPath]);
+            }
+
+            // 2. Update anggota keluarga (hapus lama, buat baru)
+            $respondent->familyMembers()->delete();
+            if ($request->has('rt_nama')) {
+                foreach ($request->rt_nama as $i => $nama) {
+                    if (empty($nama)) {
+                        continue;
+                    }
+                    $gender = $request->rt_gender[$i] ?? null;
+                    if ($gender === 'Laki-laki') $gender = 'male';
+                    elseif ($gender === 'Perempuan') $gender = 'female';
+
+                    // Pendidikan dari C3 (edu_1, edu_2, ...) — index 1-based
+                    $eduKey = 'edu_' . ($i + 1);
+                    $education = $request->input($eduKey);
+
+                    // KTP dari E6 (ktp_1, ktp_2, ...) — index 1-based
+                    $ktpKey = 'ktp_' . ($i + 1);
+                    $ktpStatus = $this->normalizeKtpStatus($request->input($ktpKey));
+
+                    $occupationKey = 'pek_' . ($i + 1);
+                    $occupation = $request->input($occupationKey);
+
+                    FamilyMember::create([
+                        'respondent_id' => $respondent->id,
+                        'name' => $nama,
+                        'gender' => $gender,
+                        'age' => $request->rt_umur[$i] ?? null,
+                        'status' => $request->rt_status[$i] ?? null,
+                        'education' => $education,
+                        'occupation' => $occupation,
+                        'ktp_status' => $ktpStatus,
+                    ]);
+                }
+            }
+
+            $isDraft = $request->input('action') === 'draft';
+
+            // 3. Update survey response
+            $response->update([
+                'questionnaire_number' => $request->questionnaire_number,
+                'region_id' => $request->region_id,
+                'interview_date' => $request->interview_date,
+                'status' => $isDraft ? SurveyResponse::STATUS_DRAFT : SurveyResponse::STATUS_SUBMITTED,
+                'surveyor_notes' => $request->surveyor_notes,
+                'submitted_at' => $isDraft ? $response->submitted_at : now(),
+                'updated_by' => auth()->id(),
+            ]);
+
+            // 4. Update jawaban kuesioner
+            $answers = $this->extractAnswers($request);
+            $answersFiltered = array_filter($answers, fn ($v) => $v !== null && $v !== '' && $v !== []);
+
+            $existingAnswer = $response->answers->first();
+            if ($existingAnswer) {
+                $existingAnswer->update(['answer_json' => $answersFiltered]);
+            } elseif (! empty($answersFiltered)) {
+                SurveyAnswer::create([
+                    'survey_response_id' => $response->id,
+                    'question_id' => null,
+                    'answer_json' => $answersFiltered,
+                ]);
+            }
+
+            // 5. Upload dokumen pendukung baru (jika ada)
+            if ($request->hasFile('documents')) {
+                foreach ($request->file('documents') as $type => $file) {
+                    if (! $file || ! $file->isValid()) {
+                        continue;
+                    }
+                    $path = $file->store('documents/'.$respondent->id, 'local');
+                    RespondentDocument::create([
+                        'respondent_id' => $respondent->id,
+                        'survey_response_id' => $response->id,
+                        'document_type' => $type,
+                        'file_path' => $path,
+                        'file_name' => $file->getClientOriginalName(),
+                        'mime_type' => $file->getMimeType(),
+                        'file_size' => $file->getSize(),
+                        'is_latest' => true,
+                        'uploaded_by' => auth()->id(),
+                    ]);
+                }
+            }
+        });
+
+        $action = $request->input('action');
+        $message = $action === 'draft' ? 'Draft berhasil disimpan.' : 'Revisi berhasil disubmit untuk diverifikasi.';
+
+        return redirect()->route('app.lansia.show', $response->id)
+            ->with('success', $message);
+    }
+
+    /**
      * Extract all form answers into an organized array.
      */
     private function extractAnswers(Request $request): array
     {
         return [
+            // Section B
+            'jml_anggota' => $request->jml_anggota,
+
             // Section D
-            'penghasilan'      => $request->penghasilan,
+            'penghasilan' => $request->penghasilan,
 
             // Section F
-            'pola_konsumsi'    => $request->pola_konsumsi,
-            'konsumsi_hari'    => $request->konsumsi_hari,
-            'cara_masak'       => $request->cara_masak,
-            'bahan_bakar'      => $request->bahan_bakar,
-            'bansos_sembako'   => $request->bansos_sembako,
-            'pemberi_sembako'  => $request->pemberi_sembako,
+            'pangan_ubi' => $request->pangan_ubi,
+            'pangan_beras' => $request->pangan_beras,
+            'pangan_sagu' => $request->pangan_sagu,
+            'sumber_pangan' => $request->sumber_pangan,
+            'sumber_pangan_beli' => $request->sumber_pangan_beli,
+            'sumber_pangan_lainnya' => $request->sumber_pangan_lainnya,
+            'pola_konsumsi' => $request->pola_konsumsi,
+            'konsumsi_hari' => $request->konsumsi_hari,
+            'cara_masak' => $request->cara_masak,
+            'bahan_bakar' => $request->bahan_bakar,
+            'bahan_bakar_lainnya' => $request->bahan_bakar_lainnya,
+            'bansos_sembako' => $request->bansos_sembako,
+            'pemberi_sembako' => $request->pemberi_sembako,
+            'pemberi_sembako_lainnya' => $request->pemberi_sembako_lainnya,
 
             // Section G
-            'keluhan_kes'      => $request->keluhan_kes,
-            'keluhan_detail'   => $request->keluhan_kes_detail,
-            'periksa_rutin'    => $request->periksa_rutin,
-            'frek_periksa'     => $request->frek_periksa,
-            'jangkau_kes'      => $request->jangkau_kes,
-            'transport_kes'    => $request->transport_kes,
-            'biaya_kes'        => $request->biaya_kes,
-            'masalah_kes'      => $request->masalah_kes,
+            'keluhan_kes' => $request->keluhan_kes,
+            'keluhan_detail' => $request->keluhan_kes_detail,
+            'periksa_rutin' => $request->periksa_rutin,
+            'frek_periksa' => $request->frek_periksa,
+            'layanan_kes' => $this->extractHealthServices($request),
+            'layanan_kes_lainnya_nama' => $request->layanan_kes_lainnya_nama,
+            'jangkau_kes' => $request->jangkau_kes,
+            'jangkau_kes_detail' => $request->jangkau_kes_detail,
+            'transport_kes' => $request->transport_kes,
+            'transport_kes_lainnya' => $request->transport_kes_lainnya,
+            'biaya_kes' => $request->biaya_kes,
+            'biaya_kes_lainnya' => $request->biaya_kes_lainnya,
+            'masalah_kes' => $request->masalah_kes,
 
             // Section H
-            'status_rumah'     => $request->status_rumah,
-            'jenis_rumah'      => $request->jenis_rumah,
-            'sumber_air'       => $request->sumber_air,
-            'sistem_air'       => $request->sistem_air,
-            'mck'              => $request->mck,
-            'penerangan'       => $request->penerangan,
-            'lama_penerangan'  => $request->lama_penerangan,
+            'status_rumah' => $request->status_rumah,
+            'status_rumah_lainnya' => $request->status_rumah_lainnya,
+            'jenis_rumah' => $request->jenis_rumah,
+            'jenis_rumah_lainnya' => $request->jenis_rumah_lainnya,
+            'sumber_air' => $request->sumber_air,
+            'mata_air_nama' => $request->mata_air_nama,
+            'nama_sungai' => $request->nama_sungai,
+            'nama_kali' => $request->nama_kali,
+            'sumber_air_lainnya' => $request->sumber_air_lainnya,
+            'sistem_air' => $request->sistem_air,
+            'sistem_air_lainnya' => $request->sistem_air_lainnya,
+            'mck' => $request->mck,
+            'bab_fasilitas' => $request->bab_fasilitas,
+            'bab_pembuangan' => $request->bab_pembuangan,
+            'jenis_kloset' => $request->jenis_kloset,
+            'penerangan' => $request->penerangan,
+            'penerangan_lainnya' => $request->penerangan_lainnya,
+            'lama_penerangan' => $request->lama_penerangan,
 
             // Section I
-            'media_info'       => $request->media_info,
-            'punya_hp'         => $request->punya_hp,
+            'media_info' => $request->media_info,
+            'punya_hp' => $request->punya_hp,
             'media_alternatif' => $request->media_alternatif,
 
             // Section J
-            'bansos'           => $request->bansos,
-            'jenis_bansos'     => $request->jenis_bansos,
-            'jamsosial'        => $request->jamsosial,
-            'jenis_jamsosial'  => $request->jenis_jamsosial,
+            'bansos' => $request->bansos,
+            'jenis_bansos' => $request->jenis_bansos,
+            'jamsosial' => $request->jamsosial,
+            'jenis_jamsosial' => $request->jenis_jamsosial,
             'pelatihan_lansia' => $request->pelatihan_lansia,
-            'jenis_pelatihan'  => $request->jenis_pelatihan,
-            'masalah_linsos'   => $request->masalah_linsos,
+            'jenis_pelatihan' => $request->jenis_pelatihan,
+            'masalah_linsos' => $request->masalah_linsos,
 
             // Section K
-            'kunjungi'         => $request->kunjungi,
-            'perkumpulan'      => $request->perkumpulan,
-            'rapat_warga'      => $request->rapat_warga,
-            'pemilu'           => $request->pemilu,
+            'kunjungi' => $request->kunjungi,
+            'perkumpulan' => $request->perkumpulan,
+            'rapat_warga' => $request->rapat_warga,
+            'pemilu' => $request->pemilu,
 
             // Section L
             'pengeluaran_total' => $request->pengeluaran_total,
@@ -205,6 +450,39 @@ class SurveyController extends Controller
         ];
     }
 
+    private function extractHealthServices(Request $request): array
+    {
+        $services = [
+            'rumah_sakit' => 0,
+            'puskesmas' => 1,
+            'pustu' => 2,
+            'puskesmas_keliling' => 3,
+            'klinik' => 4,
+            'apotek' => 5,
+        ];
+
+        $answers = [];
+
+        foreach ($services as $key => $index) {
+            $answers[$key] = [
+                'medis' => $request->boolean("layanan_kes.$index.medis"),
+                'rutin' => $request->boolean("layanan_kes.$index.rutin"),
+            ];
+        }
+
+        $answers['lainnya'] = [
+            'medis' => $request->boolean('layanan_kes_lain_medis'),
+            'rutin' => $request->boolean('layanan_kes_lain_rutin'),
+        ];
+
+        return $answers;
+    }
+
+    private function normalizeKtpStatus(?string $status): ?string
+    {
+        return $status === 'ktp_nas' ? 'ktp_nasional' : $status;
+    }
+
     /**
      * Get districts by city (AJAX).
      */
@@ -215,6 +493,7 @@ class SurveyController extends Controller
             ->where('parent_id', $request->city_id)
             ->orderBy('name')
             ->get(['id', 'name']);
+
         return response()->json($districts);
     }
 
@@ -228,6 +507,7 @@ class SurveyController extends Controller
             ->where('parent_id', $request->district_id)
             ->orderBy('name')
             ->get(['id', 'name']);
+
         return response()->json($villages);
     }
 }

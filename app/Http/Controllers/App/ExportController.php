@@ -41,7 +41,7 @@ class ExportController extends Controller
 
     private function exportCsv($responses): StreamedResponse
     {
-        $filename = 'data_lansia_' . date('Ymd_His') . '.csv';
+        $filename = 'data_lansia_'.date('Ymd_His').'.csv';
 
         return response()->streamDownload(function () use ($responses) {
             $handle = fopen('php://output', 'w');
@@ -76,24 +76,24 @@ class ExportController extends Controller
                 $r = $resp->respondent;
                 fputcsv($handle, [
                     $i + 1,
-                    $resp->questionnaire_number,
-                    $r?->full_name ?? '-',
-                    $r?->gender === 'male' ? 'Laki-laki' : 'Perempuan',
+                    self::safeCsvValue($resp->questionnaire_number),
+                    self::safeCsvValue($r?->full_name ?? '-'),
+                    self::safeCsvValue($r?->gender === 'male' ? 'Laki-laki' : 'Perempuan'),
                     $r?->age ?? '-',
-                    $r?->education ?? '-',
-                    $r?->occupation ?? '-',
-                    $r?->address ?? '-',
-                    $r?->phone ?? '-',
-                    $r?->religion ?? '-',
-                    $r?->ethnicity ?? '-',
-                    $r?->citizenship_status ?? '-',
-                    $r?->household_status ?? '-',
-                    $resp->region?->name ?? '-',
-                    $resp->surveyor?->name ?? '-',
-                    $resp->interview_date?->format('d/m/Y') ?? '-',
-                    $resp->status_label,
-                    $resp->submitted_at?->format('d/m/Y H:i') ?? '-',
-                    $resp->verified_at?->format('d/m/Y H:i') ?? '-',
+                    self::safeCsvValue($r?->education ?? '-'),
+                    self::safeCsvValue($r?->occupation ?? '-'),
+                    self::safeCsvValue($r?->address ?? '-'),
+                    self::safeCsvValue($r?->phone ?? '-'),
+                    self::safeCsvValue($r?->religion ?? '-'),
+                    self::safeCsvValue($r?->ethnicity ?? '-'),
+                    self::safeCsvValue($r?->citizenship_status ?? '-'),
+                    self::safeCsvValue($r?->household_status ?? '-'),
+                    self::safeCsvValue($resp->region?->name ?? '-'),
+                    self::safeCsvValue($resp->surveyor?->name ?? '-'),
+                    self::safeCsvValue($resp->interview_date?->format('d/m/Y') ?? '-'),
+                    self::safeCsvValue($resp->status_label),
+                    self::safeCsvValue($resp->submitted_at?->format('d/m/Y H:i') ?? '-'),
+                    self::safeCsvValue($resp->verified_at?->format('d/m/Y H:i') ?? '-'),
                 ]);
             }
 
@@ -101,5 +101,12 @@ class ExportController extends Controller
         }, $filename, [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
+    }
+
+    public static function safeCsvValue(mixed $value): string
+    {
+        $value = (string) $value;
+
+        return preg_match('/^[=+\-@]/', $value) ? "'".$value : $value;
     }
 }

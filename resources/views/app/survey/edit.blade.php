@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-@section('title', 'Input Survey — Lansia Papua')
-@section('page-title', 'Input Survey')
+@section('title', 'Revisi Survey — Lansia Papua')
+@section('page-title', 'Revisi Survey')
 
 @push('styles')
 <style>
@@ -81,10 +81,10 @@
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
         <div>
-            <h2 class="text-lg font-bold text-gray-800">Input Survey Lansia</h2>
-            <p class="text-xs text-gray-400 mt-0.5">Kuesioner Pendataan Lansia Provinsi Papua</p>
+            <h2 class="text-lg font-bold text-gray-800">Revisi Survey Lansia</h2>
+            <p class="text-xs text-gray-400 mt-0.5">Revisi data kuesioner: {{ $respondent->full_name }} ({{ $response->questionnaire_number }})</p>
         </div>
-        <a href="{{ route('app.lansia.index') }}" class="text-xs text-gray-400 hover:text-sky-500 transition-colors">Batal</a>
+        <a href="{{ route('app.lansia.show', $response->id) }}" class="text-xs text-gray-400 hover:text-sky-500 transition-colors">Batal</a>
     </div>
 
     <!-- Step progress -->
@@ -114,8 +114,9 @@
 
     <!-- Form -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <form method="POST" action="{{ route('app.survey.store') }}" enctype="multipart/form-data">
+        <form method="POST" action="{{ route('app.survey.update', $response->id) }}" enctype="multipart/form-data">
         @csrf
+        @method('PUT')
         <input type="hidden" name="action" id="action-input" value="submit" />
         <div class="p-6">
 
@@ -979,7 +980,7 @@
                 <div class="section-heading mt-6">M. Catatan Surveyor</div>
                 <div>
                     <label class="form-label">Catatan tambahan (opsional)</label>
-                    <textarea name="surveyor_notes" class="form-input" rows="3" placeholder="Catatan tambahan dari surveyor...">{{ old('surveyor_notes') }}</textarea>
+                    <textarea name="surveyor_notes" class="form-input" rows="3" placeholder="Catatan tambahan dari surveyor...">{{ old('surveyor_notes', $response->surveyor_notes) }}</textarea>
                 </div>
             </div>
 
@@ -992,6 +993,12 @@
                 <!-- Foto Profil Lansia -->
                 <div class="mb-6">
                     <label class="form-label">Foto Profil Lansia</label>
+                    @if($respondent->photo_path)
+                    <div class="mb-2 flex items-center gap-3">
+                        <img src="{{ asset('storage/' . $respondent->photo_path) }}" alt="Foto profil" class="w-16 h-16 rounded-full object-cover border-2 border-sky-200" />
+                        <span class="text-xs text-gray-500">Foto saat ini (upload baru untuk mengganti)</span>
+                    </div>
+                    @endif
                     <label class="border-2 border-dashed border-gray-200 hover:border-sky-300 rounded-xl p-5 text-center transition-colors group cursor-pointer block max-w-xs">
                         <div class="w-16 h-16 bg-gray-100 group-hover:bg-sky-50 rounded-full flex items-center justify-center mx-auto mb-3 transition-colors">
                             <svg class="w-7 h-7 text-gray-300 group-hover:text-sky-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
@@ -1071,7 +1078,7 @@
                 <button type="submit" id="btn-submit"
                         class="hidden inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold px-6 py-2.5 rounded-lg shadow-sm transition-colors cursor-pointer">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                    Submit Survey
+                    Submit Revisi
                 </button>
             </div>
         </div>
@@ -1082,6 +1089,33 @@
 @endsection
 
 @push('scripts')
+@php
+$__prefillData = [
+    'questionnaire_number' => $response->questionnaire_number,
+    'interview_date' => $response->interview_date?->format('Y-m-d'),
+    'enumerator_name' => $response->surveyor?->name,
+    'full_name' => $respondent->full_name,
+    'gender' => $respondent->gender,
+    'age' => $respondent->age,
+    'education' => $respondent->education,
+    'occupation' => $respondent->occupation,
+    'address' => $respondent->address,
+    'phone' => $respondent->phone,
+    'religion' => $respondent->religion,
+    'ethnicity' => $respondent->ethnicity,
+    'status_oap' => $respondent->citizenship_status,
+    'household_status' => $respondent->household_status,
+    'surveyor_notes' => $response->surveyor_notes,
+];
+@endphp
+<script>
+    window.__prefillData = {!! json_encode($__prefillData) !!};
+    window.__prefillAnswers = {!! json_encode($answers) !!};
+    window.__selectedCity = {!! json_encode($selectedCity?->id) !!};
+    window.__selectedDistrict = {!! json_encode($selectedDistrict?->id) !!};
+    window.__selectedVillage = {!! json_encode($selectedVillage?->id) !!};
+    window.__familyMembers = {!! json_encode($respondent->familyMembers) !!};
+</script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
 
@@ -1335,6 +1369,178 @@ document.addEventListener('DOMContentLoaded', function() {
             if (totalEl) totalEl.value = total > 0 ? total.toLocaleString('id-ID') : '';
         });
     });
+
+    // ══════════════════════════════════════
+    // PREFILL DATA FOR EDIT MODE
+    // ══════════════════════════════════════
+    const prefillData = window.__prefillData;
+    const prefillAnswers = window.__prefillAnswers;
+
+    // Fill text/number/date inputs
+    function fillInput(name, value) {
+        if (value === null || value === undefined || value === '') return;
+        const el = document.querySelector('[name="' + name + '"]');
+        if (el) el.value = value;
+    }
+
+    // Fill radio inputs
+    function fillRadio(name, value) {
+        if (value === null || value === undefined || value === '') return;
+        const el = document.querySelector('input[name="' + name + '"][value="' + value + '"]');
+        if (el) { el.checked = true; el.dispatchEvent(new Event('change', { bubbles: true })); }
+    }
+
+    // Fill checkboxes (array)
+    function fillCheckboxes(name, values) {
+        if (!values || !Array.isArray(values)) return;
+        values.forEach(function(v) {
+            const el = document.querySelector('input[name="' + name + '[]"][value="' + v + '"]');
+            if (el) { el.checked = true; el.dispatchEvent(new Event('change', { bubbles: true })); }
+        });
+    }
+
+    // Prefill respondent data
+    Object.entries(prefillData).forEach(function([key, val]) {
+        if (val === null || val === undefined || val === '') return;
+        var radio = document.querySelector('input[type="radio"][name="' + key + '"]');
+        if (radio) { fillRadio(key, String(val)); }
+        else { fillInput(key, val); }
+    });
+
+    // Prefill answers
+    if (prefillAnswers) {
+        const radioFields = ['pola_konsumsi','konsumsi_hari','bansos_sembako','keluhan_kes','periksa_rutin','jangkau_kes','status_rumah','jenis_rumah','mck','lama_penerangan','punya_hp','bansos','jamsosial','pelatihan_lansia','penghasilan','pengeluaran_total','jml_anggota','kunjungi','perkumpulan','rapat_warga','pemilu','pemberi_sembako','frek_periksa','sistem_air'];
+        const checkboxFields = ['cara_masak','bahan_bakar','media_info','biaya_kes','sumber_air','penerangan','transport_kes','media_alternatif','jenis_bansos','jenis_jamsosial','jenis_pelatihan','masalah_linsos','masalah_kes'];
+
+        Object.entries(prefillAnswers).forEach(function([key, val]) {
+            if (val === null || val === undefined || val === '') return;
+            if (key === 'pengeluaran_items' && typeof val === 'object') {
+                var mapping = {
+                    'Konsumsi (Kebutuhan Pokok)': 'pengeluaran_konsumsi',
+                    'Energi (penerangan & bahan bakar)': 'pengeluaran_energi',
+                    'Pendidikan': 'pengeluaran_pendidikan',
+                    'Kesehatan': 'pengeluaran_kesehatan',
+                    'Acara Sosial/Keagamaan/Adat': 'pengeluaran_sosial',
+                    'Transportasi': 'pengeluaran_transport',
+                };
+                Object.entries(val).forEach(function([item, amount]) {
+                    if (mapping[item] && amount) fillInput(mapping[item], amount);
+                });
+                return;
+            }
+            if (checkboxFields.includes(key) && Array.isArray(val)) {
+                fillCheckboxes(key, val);
+            } else if (radioFields.includes(key)) {
+                fillRadio(key, String(val));
+            } else {
+                fillInput(key, val);
+            }
+        });
+    }
+
+    // Prefill region cascade
+    const selectedCity = window.__selectedCity;
+    const selectedDistrict = window.__selectedDistrict;
+    const selectedVillage = window.__selectedVillage;
+
+    async function prefillRegion() {
+        const citySel = document.getElementById('sel-city');
+        const districtSel = document.getElementById('sel-district');
+        const villageSel = document.getElementById('sel-village');
+
+        if (selectedCity && citySel) {
+            citySel.value = selectedCity;
+            citySel.dispatchEvent(new Event('searchable:refresh'));
+            // Load districts
+            const distRes = await fetch('{{ route("app.wilayah.districts") }}?city_id=' + selectedCity, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const districts = await distRes.json();
+            districtSel.innerHTML = '<option value="">-- Pilih Distrik --</option>';
+            districts.forEach(function(d) { var opt = document.createElement('option'); opt.value = d.id; opt.textContent = d.name; districtSel.appendChild(opt); });
+            districtSel.disabled = false;
+            districtSel.dispatchEvent(new Event('searchable:refresh'));
+
+            if (selectedDistrict) {
+                districtSel.value = selectedDistrict;
+                districtSel.dispatchEvent(new Event('searchable:refresh'));
+                // Load villages
+                const vilRes = await fetch('{{ route("app.wilayah.villages") }}?district_id=' + selectedDistrict, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const villages = await vilRes.json();
+                villageSel.innerHTML = '<option value="">-- Pilih Kelurahan --</option>';
+                villages.forEach(function(v) { var opt = document.createElement('option'); opt.value = v.id; opt.textContent = v.name; villageSel.appendChild(opt); });
+                villageSel.disabled = false;
+                villageSel.dispatchEvent(new Event('searchable:refresh'));
+
+                if (selectedVillage) {
+                    villageSel.value = selectedVillage;
+                    villageSel.dispatchEvent(new Event('searchable:refresh'));
+                }
+            }
+        }
+    }
+    prefillRegion();
+
+    // Prefill family members rows
+    const familyMembers = window.__familyMembers;
+    if (familyMembers && familyMembers.length > 0) {
+        const tbody = document.getElementById('rt-table-body');
+        if (tbody) {
+            tbody.innerHTML = '';
+            familyMembers.forEach(function(fm, i) {
+                const tr = document.createElement('tr');
+                var genderLaki = (fm.gender === 'Laki-laki' || fm.gender === 'male') ? 'selected' : '';
+                var genderPerempuan = (fm.gender === 'Perempuan' || fm.gender === 'female') ? 'selected' : '';
+                tr.innerHTML = '<td class="text-center">' + (i + 1) + '</td>' +
+                    '<td><input type="text" name="rt_nama[]" class="form-input" style="min-width:160px" value="' + (fm.name || '') + '" /></td>' +
+                    '<td><select name="rt_gender[]" class="form-input" style="min-width:120px">' +
+                        '<option value="">-</option>' +
+                        '<option value="male" ' + genderLaki + '>Laki-laki</option>' +
+                        '<option value="female" ' + genderPerempuan + '>Perempuan</option>' +
+                    '</select></td>' +
+                    '<td><input type="number" name="rt_umur[]" class="form-input" style="width:70px" min="60" value="' + (fm.age || '') + '" /></td>' +
+                    '<td><input type="text" name="rt_status[]" class="form-input" style="min-width:120px" placeholder="Hub. keluarga" value="' + (fm.status || '') + '" /></td>';
+                tbody.appendChild(tr);
+            });
+            rowCountB2 = familyMembers.length;
+        }
+
+        // Prefill C3 — Pendidikan
+        var c3Body = document.getElementById('c3-table-body');
+        if (c3Body) {
+            c3Body.innerHTML = '';
+            familyMembers.forEach(function(fm, i) {
+                var tr = document.createElement('tr');
+                var eduValues = ['ts', 'sd', 'smp', 'sma', 'pt'];
+                var radioHtml = '';
+                eduValues.forEach(function(v) {
+                    var checked = (fm.education === v) ? 'checked' : '';
+                    radioHtml += '<td><input type="radio" name="edu_' + (i + 1) + '" value="' + v + '" ' + checked + ' /></td>';
+                });
+                tr.innerHTML = '<td class="text-center">' + (i + 1) + '</td>' +
+                    '<td><input type="text" class="form-input" style="min-width:140px" value="' + (fm.name || '') + '" /></td>' +
+                    radioHtml;
+                c3Body.appendChild(tr);
+            });
+        }
+
+        // Prefill E6 — KTP
+        var e6Body = document.getElementById('e6-table-body');
+        if (e6Body) {
+            e6Body.innerHTML = '';
+            familyMembers.forEach(function(fm, i) {
+                var tr = document.createElement('tr');
+                var ktpValues = ['e_ktp', 'ktp_nasional', 'no_ktp'];
+                var radioHtml = '';
+                ktpValues.forEach(function(v) {
+                    var checked = (fm.ktp_status === v) ? 'checked' : '';
+                    radioHtml += '<td><input type="radio" name="ktp_' + (i + 1) + '" value="' + v + '" ' + checked + ' /></td>';
+                });
+                tr.innerHTML = '<td class="text-center">' + (i + 1) + '</td>' +
+                    '<td><input type="text" class="form-input" style="min-width:140px" value="' + (fm.name || '') + '" /></td>' +
+                    radioHtml;
+                e6Body.appendChild(tr);
+            });
+        }
+    }
 
 }); // end DOMContentLoaded
 </script>

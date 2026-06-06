@@ -5,6 +5,7 @@ namespace App\Http\Controllers\App;
 use App\Http\Controllers\Controller;
 use App\Models\SurveyResponse;
 use App\Models\VerificationLog;
+use App\Support\SurveyResponseAccess;
 use Illuminate\Http\Request;
 
 class VerificationController extends Controller
@@ -12,7 +13,7 @@ class VerificationController extends Controller
     public function index()
     {
         $responses = SurveyResponse::with(['respondent', 'surveyor', 'region'])
-            ->whereIn('status', ['submitted', 'need_revision'])
+            ->whereIn('status', SurveyResponseAccess::verifiableStatuses())
             ->orderBy('submitted_at', 'asc')
             ->paginate(25);
 
@@ -21,14 +22,14 @@ class VerificationController extends Controller
 
     public function show($id)
     {
-        $response = SurveyResponse::with([
+        $response = SurveyResponseAccess::applyVerificationScope(SurveyResponse::with([
             'respondent.familyMembers',
             'respondent.documents',
             'surveyor',
             'region.parent.parent',
             'answers',
             'verificationLogs.verifier',
-        ])->findOrFail($id);
+        ]))->findOrFail($id);
 
         return view('app.verification.show', compact('response'));
     }
@@ -37,38 +38,33 @@ class VerificationController extends Controller
     {
         $request->validate([
             'status' => ['required', 'in:verified,need_revision,rejected'],
-            'note'   => ['required_if:status,need_revision,rejected', 'nullable', 'string', 'min:10'],
+            'note' => ['required_if:status,need_revision,rejected', 'nullable', 'string', 'min:10'],
         ], [
             'note.required_if' => 'Catatan wajib diisi minimal 10 karakter untuk status ini.',
-            'note.min'         => 'Catatan minimal 10 karakter.',
+            'note.min' => 'Catatan minimal 10 karakter.',
         ]);
 
-        $response = SurveyResponse::findOrFail($id);
-
-        // Validate transition
-        if (!in_array($response->status, ['submitted', 'need_revision'])) {
-            return back()->with('error', 'Data ini tidak bisa diverifikasi (status: ' . $response->status . ')');
-        }
+        $response = SurveyResponseAccess::applyVerificationScope(SurveyResponse::query())->findOrFail($id);
 
         $response->update([
-            'status'      => $request->status,
+            'status' => $request->status,
             'verified_at' => $request->status === 'verified' ? now() : null,
             'verified_by' => auth()->id(),
-            'updated_by'  => auth()->id(),
+            'updated_by' => auth()->id(),
         ]);
 
         VerificationLog::create([
             'survey_response_id' => $response->id,
-            'status'             => $request->status,
-            'note'               => $request->note,
-            'verified_by'        => auth()->id(),
-            'verified_at'        => now(),
+            'status' => $request->status,
+            'note' => $request->note,
+            'verified_by' => auth()->id(),
+            'verified_at' => now(),
         ]);
 
         $messages = [
-            'verified'      => 'Data berhasil diverifikasi.',
+            'verified' => 'Data berhasil diverifikasi.',
             'need_revision' => 'Data dikembalikan untuk revisi.',
-            'rejected'      => 'Data ditolak. Surveyor harus turun ulang.',
+            'rejected' => 'Data ditolak. Surveyor harus turun ulang.',
         ];
 
         return redirect()->route('app.verification.index')
