@@ -31,27 +31,18 @@
             </div>
         </div>
 
-        <!-- User info -->
-        <div class="px-5 py-4 border-b border-white/10">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-full bg-sky-500/20 flex items-center justify-center text-sky-400 text-xs font-bold">
-                    {{ strtoupper(substr(auth()->user()->name, 0, 2)) }}
-                </div>
-                <div>
-                    <div class="text-white text-xs font-semibold">{{ auth()->user()->name }}</div>
-                    <div class="text-white/40 text-[0.65rem] capitalize">{{ auth()->user()->getRoleNames()->first() ?? 'User' }}</div>
-                </div>
-            </div>
-        </div>
-
         <!-- Navigation -->
         <nav class="flex-1 px-3 py-4 space-y-1">
             @php
-                $role = auth()->user()->getRoleNames()->first();
+                $user = auth()->user();
+                $isAdminUser = $user->hasAnyRole(['administrator', 'super admin', 'super_admin']);
+                $isSurveyor = $user->hasRole('surveyor');
+                $isVerifikator = $user->hasRole('verifikator');
+                $displayRole = $user->getRoleNames()->first() ?? 'User';
             @endphp
 
             {{-- Menu berdasarkan role --}}
-            @if($role === 'administrator')
+            @if($isAdminUser)
                 <x-sidebar-link href="{{ route('app.dashboard') }}" icon="home" :active="request()->routeIs('app.dashboard')">
                     Dashboard
                 </x-sidebar-link>
@@ -67,7 +58,14 @@
                 <x-sidebar-link href="{{ route('app.export', ['format' => 'csv']) }}" icon="chart" :active="false">
                     Export Data
                 </x-sidebar-link>
-            @elseif($role === 'surveyor')
+                <div class="pt-3 mt-3 border-t border-white/10"></div>
+                <x-sidebar-link href="{{ route('app.activity-logs.index') }}" icon="log" :active="request()->routeIs('app.activity-logs.*')">
+                    Log Aktivitas
+                </x-sidebar-link>
+                <x-sidebar-link href="{{ url('/admin') }}" icon="settings" :active="request()->is('admin*')">
+                    Setting
+                </x-sidebar-link>
+            @elseif($isSurveyor)
                 <x-sidebar-link href="{{ route('app.dashboard') }}" icon="home" :active="request()->routeIs('app.dashboard')">
                     Beranda
                 </x-sidebar-link>
@@ -80,7 +78,7 @@
                 <x-sidebar-link href="{{ route('app.export', ['format' => 'csv']) }}" icon="chart" :active="false">
                     Export Data
                 </x-sidebar-link>
-            @elseif($role === 'verifikator')
+            @elseif($isVerifikator)
                 <x-sidebar-link href="{{ route('app.dashboard') }}" icon="home" :active="request()->routeIs('app.dashboard')">
                     Beranda
                 </x-sidebar-link>
@@ -93,8 +91,19 @@
             @endif
         </nav>
 
-        <!-- Logout -->
-        <div class="px-3 pb-4">
+        <!-- User info & logout -->
+        <div class="px-3 pb-4 border-t border-white/10 pt-4">
+            <div class="px-3 pb-3 mb-3 border-b border-white/10">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-full bg-sky-500/20 flex items-center justify-center text-sky-400 text-xs font-bold">
+                        {{ strtoupper(substr(auth()->user()->name, 0, 2)) }}
+                    </div>
+                    <div class="min-w-0">
+                        <div class="text-white text-xs font-semibold truncate">{{ auth()->user()->name }}</div>
+                        <div class="text-white/40 text-[0.65rem] capitalize truncate">{{ $displayRole }}</div>
+                    </div>
+                </div>
+            </div>
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
                 <button type="submit" class="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-medium text-white/40 hover:text-white/70 hover:bg-white/5 rounded-lg transition-colors cursor-pointer">

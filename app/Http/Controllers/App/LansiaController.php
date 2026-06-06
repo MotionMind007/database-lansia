@@ -8,6 +8,7 @@ use App\Models\SurveyResponse;
 use App\Models\User;
 use App\Support\SurveyResponseAccess;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class LansiaController extends Controller
 {
@@ -23,10 +24,12 @@ class LansiaController extends Controller
         // Filters
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->whereHas('respondent', function ($respondentQuery) use ($search) {
-                    $respondentQuery->where('full_name', 'ilike', "%{$search}%");
-                })->orWhere('questionnaire_number', 'ilike', "%{$search}%");
+            $likeOperator = $this->likeOperator();
+
+            $query->where(function ($q) use ($search, $likeOperator) {
+                $q->whereHas('respondent', function ($respondentQuery) use ($search, $likeOperator) {
+                    $respondentQuery->where('full_name', $likeOperator, "%{$search}%");
+                })->orWhere('questionnaire_number', $likeOperator, "%{$search}%");
             });
         }
 
@@ -45,10 +48,12 @@ class LansiaController extends Controller
         $responses = $query->orderByDesc('created_at')->paginate(25)->withQueryString();
 
         // Filter options
-        $regions = Region::active()->village()->with('parent.parent')->get();
+        $selectedRegion = $request->filled('region_id')
+            ? Region::active()->village()->with('parent.parent')->find($request->region_id)
+            : null;
         $surveyors = User::role('surveyor')->where('is_active', true)->get(['id', 'name']);
 
-        return view('app.lansia.index', compact('responses', 'regions', 'surveyors'));
+        return view('app.lansia.index', compact('responses', 'selectedRegion', 'surveyors'));
     }
 
     public function show($id)
@@ -69,5 +74,10 @@ class LansiaController extends Controller
         $response = $query->findOrFail($id);
 
         return view('app.lansia.show', compact('response'));
+    }
+
+    private function likeOperator(): string
+    {
+        return DB::getDriverName() === 'pgsql' ? 'ilike' : 'like';
     }
 }

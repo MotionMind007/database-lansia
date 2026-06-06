@@ -85,7 +85,7 @@
         <div class="flex items-start justify-between">
             <div class="flex items-center gap-5">
                 @if($respondent->photo_path)
-                <img src="{{ asset('storage/' . $respondent->photo_path) }}" alt="{{ $respondent->full_name }}" class="w-20 h-20 rounded-xl object-cover shrink-0" />
+                <img src="{{ route('app.respondents.photo', $respondent) }}" alt="{{ $respondent->full_name }}" class="w-20 h-20 rounded-xl object-cover shrink-0" />
                 @else
                 <div class="w-20 h-20 rounded-xl bg-sky-100 flex items-center justify-center text-sky-500 text-xl font-bold shrink-0">
                     {{ $initials }}

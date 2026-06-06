@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\App;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SyncDashboardFacts;
 use App\Models\SurveyResponse;
 use App\Models\VerificationLog;
 use App\Support\SurveyResponseAccess;
@@ -49,9 +50,12 @@ class VerificationController extends Controller
         $response->update([
             'status' => $request->status,
             'verified_at' => $request->status === 'verified' ? now() : null,
+        ]);
+
+        $response->forceFill([
             'verified_by' => auth()->id(),
             'updated_by' => auth()->id(),
-        ]);
+        ])->save();
 
         VerificationLog::create([
             'survey_response_id' => $response->id,
@@ -60,6 +64,19 @@ class VerificationController extends Controller
             'verified_by' => auth()->id(),
             'verified_at' => now(),
         ]);
+
+        SyncDashboardFacts::dispatch($response->id, 'status');
+
+        activity('verification')
+            ->causedBy(auth()->user())
+            ->performedOn($response)
+            ->event('survey_'.$request->status)
+            ->withProperties([
+                'questionnaire_number' => $response->questionnaire_number,
+                'status' => $request->status,
+                'note' => $request->note,
+            ])
+            ->log('Status verifikasi survey diperbarui.');
 
         $messages = [
             'verified' => 'Data berhasil diverifikasi.',

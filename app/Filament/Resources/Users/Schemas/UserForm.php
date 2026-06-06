@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users\Schemas;
 
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -23,8 +24,18 @@ class UserForm
                 DateTimePicker::make('email_verified_at'),
                 TextInput::make('password')
                     ->password()
-                    ->required(),
-                TextInput::make('username'),
+                    ->revealable()
+                    ->required(fn (string $operation): bool => $operation === 'create')
+                    ->dehydrated(fn (?string $state): bool => filled($state))
+                    ->maxLength(255)
+                    ->helperText('Kosongkan saat edit jika password tidak ingin diubah.'),
+                TextInput::make('username')
+                    ->maxLength(255),
+                CheckboxList::make('roles')
+                    ->relationship('roles', 'name')
+                    ->columns(2)
+                    ->required()
+                    ->helperText('Pilih minimal satu role untuk menentukan akses user.'),
                 Select::make('region_id')
                     ->relationship('region', 'name'),
                 Toggle::make('is_active')

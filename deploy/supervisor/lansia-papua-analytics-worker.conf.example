@@ -1,0 +1,13 @@
+[program:lansia-papua-analytics-worker]
+process_name=%(program_name)s_%(process_num)02d
+directory=/var/www/lansia-papua
+command=php /var/www/lansia-papua/artisan queue:work --queue=analytics --tries=3 --timeout=180 --sleep=2 --max-time=3600
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=2
+redirect_stderr=true
+stdout_logfile=/var/www/lansia-papua/storage/logs/analytics-worker.log
+stopwaitsecs=180

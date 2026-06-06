@@ -10,7 +10,19 @@ class SurveyResponseAccess
 {
     public static function roleFor(User $user): ?string
     {
-        return $user->getRoleNames()->first();
+        if ($user->hasAnyRole(['administrator', 'super admin', 'super_admin'])) {
+            return 'administrator';
+        }
+
+        if ($user->hasRole('surveyor')) {
+            return 'surveyor';
+        }
+
+        if ($user->hasRole('verifikator')) {
+            return 'verifikator';
+        }
+
+        return null;
     }
 
     public static function applyVisibleScope(Builder $query, User $user): Builder

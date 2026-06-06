@@ -15,9 +15,7 @@ class CheckRole
             return redirect()->route('login');
         }
 
-        $userRole = $user->getRoleNames()->first();
-
-        if (!in_array($userRole, $roles)) {
+        if (! $user->hasAnyRole($roles)) {
             abort(403, 'Anda tidak memiliki akses ke halaman ini.');
         }
 

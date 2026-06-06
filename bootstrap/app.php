@@ -4,6 +4,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Console\Scheduling\Schedule;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -11,6 +12,19 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withSchedule(function (Schedule $schedule): void {
+        $schedule->command('dashboard:health --fail-on-warning')
+            ->hourly()
+            ->withoutOverlapping()
+            ->appendOutputTo(storage_path('logs/dashboard-health.log'));
+
+        if (config('dashboard.scheduled_rebuild.enabled')) {
+            $schedule->command('dashboard:rebuild-facts --chunk='.config('dashboard.scheduled_rebuild.chunk'))
+                ->dailyAt(config('dashboard.scheduled_rebuild.time'))
+                ->withoutOverlapping()
+                ->appendOutputTo(storage_path('logs/dashboard-rebuild.log'));
+        }
+    })
     ->withMiddleware(function (Middleware $middleware): void {
         //
     })

@@ -34,12 +34,6 @@ class RespondentDocument extends Model
 
     public function getTypeLabelAttribute(): string
     {
-        return match ($this->document_type) {
-            'ktp' => 'KTP',
-            'kk' => 'Kartu Keluarga',
-            'surat_domisili' => 'Surat Domisili',
-            'foto_rumah' => 'Foto Kondisi Rumah',
-            default => 'Dokumen Lainnya',
-        };
+        return config('uploads.documents.types')[$this->document_type] ?? 'Dokumen Lainnya';
     }
 }

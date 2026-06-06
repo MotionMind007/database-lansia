@@ -56,12 +56,12 @@
     <!-- Eyebrow Badge -->
     <div class="animate-up delay-2 inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 backdrop-blur-sm mb-5">
         <span class="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_6px_#4ADE80]" style="animation: blink 2s ease-in-out infinite"></span>
-        <span class="text-xs font-semibold tracking-wider uppercase text-white/85">Sistem Resmi Pemerintah Provinsi Papua</span>
+        <span class="text-xs font-semibold tracking-wider uppercase text-white/85">Dinas Sosial, kependudukan dan Catatan Sipil Provinsi Papua</span>
     </div>
 
     <!-- Main Heading -->
     <h1 class="animate-up delay-3 font-serif text-5xl md:text-6xl font-bold text-white mb-2" style="text-shadow: 0 2px 20px rgba(0,0,0,0.4);">
-        <span class="bg-gradient-to-r from-sky-300 via-sky-400 to-sky-500 bg-clip-text text-transparent">LANSIA PAPUA</span>
+        <span class="bg-gradient-to-r from-sky-300 via-sky-400 to-sky-500 bg-clip-text text-transparent">Jaminan Lanjut Usia (JALAN)</span>
     </h1>
 
     <!-- Subtitle -->

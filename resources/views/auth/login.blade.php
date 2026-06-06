@@ -37,8 +37,8 @@
                 <img src="{{ asset('images/logo-papua.svg') }}" alt="Lambang Papua" class="w-8 h-8 object-contain" />
             </div>
             <div>
-                <div class="font-serif text-xl font-bold text-white"><span class="text-sky-400">LANSIA</span> PAPUA</div>
-                <div class="text-[0.68rem] text-white/40 tracking-wider uppercase">Provinsi Papua</div>
+                <div class="font-serif text-xl font-bold text-white"><span class="text-sky-400">JALAN</span></div>
+                <div class="text-[0.68rem] text-white/40 tracking-wider uppercase">Jaminan Lanjut Usia</div>
             </div>
         </div>
 

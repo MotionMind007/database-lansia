@@ -995,7 +995,7 @@
                     <label class="form-label">Foto Profil Lansia</label>
                     @if($respondent->photo_path)
                     <div class="mb-2 flex items-center gap-3">
-                        <img src="{{ asset('storage/' . $respondent->photo_path) }}" alt="Foto profil" class="w-16 h-16 rounded-full object-cover border-2 border-sky-200" />
+                        <img src="{{ route('app.respondents.photo', $respondent) }}" alt="Foto profil" class="w-16 h-16 rounded-full object-cover border-2 border-sky-200" />
                         <span class="text-xs text-gray-500">Foto saat ini (upload baru untuk mengganti)</span>
                     </div>
                     @endif

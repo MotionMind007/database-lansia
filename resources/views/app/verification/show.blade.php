@@ -107,13 +107,42 @@
                         'pengeluaran_total' => 'Berapa rata-rata pengeluaran keluarga dalam satu bulan?',
                         'penghasilan' => 'Berapa rata-rata penghasilan kepala keluarga dalam satu bulan?',
                     ];
+
+                    $formatAnswerValue = function ($value) use (&$formatAnswerValue) {
+                        if (is_bool($value)) {
+                            return $value ? 'Ya' : 'Tidak';
+                        }
+
+                        if (! is_array($value)) {
+                            return trim((string) $value);
+                        }
+
+                        $isList = array_keys($value) === range(0, count($value) - 1);
+
+                        if ($isList) {
+                            return collect($value)
+                                ->map(fn ($item) => $formatAnswerValue($item))
+                                ->filter(fn ($item) => $item !== '')
+                                ->implode(', ');
+                        }
+
+                        return collect($value)
+                            ->map(function ($item, $itemKey) use ($formatAnswerValue) {
+                                $label = ucfirst(str_replace('_', ' ', (string) $itemKey));
+                                $formatted = $formatAnswerValue($item);
+
+                                return $formatted !== '' ? "{$label}: {$formatted}" : null;
+                            })
+                            ->filter()
+                            ->implode('; ');
+                    };
                 @endphp
                 <div class="space-y-2 text-xs">
                     @foreach($answers as $key => $val)
                     @if($val !== null && $val !== '' && $val !== [])
                     <div class="py-2 border-b border-gray-50">
                         <div class="text-gray-500 mb-0.5">{{ $labelMap[$key] ?? ucfirst(str_replace('_', ' ', $key)) }}</div>
-                        <div class="text-gray-800 font-medium">{{ is_array($val) ? implode(', ', $val) : $val }}</div>
+                        <div class="text-gray-800 font-medium">{{ $formatAnswerValue($val) ?: '-' }}</div>
                     </div>
                     @endif
                     @endforeach

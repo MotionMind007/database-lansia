@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Region;
 use App\Models\SurveyAnswer;
 use App\Models\SurveyResponse;
+use App\Support\DashboardCache;
+use App\Support\DashboardFactReader;
 use App\Support\SurveyResponseAccess;
 
 class DashboardController extends Controller
@@ -23,6 +25,41 @@ class DashboardController extends Controller
             $gender = null;
         }
 
+        $payload = DashboardCache::remember(
+            $user,
+            compact('cityId', 'districtId', 'villageId', 'gender', 'category'),
+            fn (): array => $this->buildDashboardPayload($user, $cityId, $districtId, $villageId, $gender, $category)
+        );
+
+        $stats = $payload['stats'];
+        $questionAnalytics = $payload['questionAnalytics'];
+        $dashboardSummary = $payload['dashboardSummary'];
+        $categoryOptions = $payload['categoryOptions'];
+        $category = $payload['category'];
+
+        $province = Region::active()->province()->first();
+        $cities = $province ? Region::active()->city()->where('parent_id', $province->id)->orderBy('name')->get() : collect();
+        $districts = $cityId ? Region::active()->district()->where('parent_id', $cityId)->orderBy('name')->get() : collect();
+        $villages = $districtId ? Region::active()->village()->where('parent_id', $districtId)->orderBy('name')->get() : collect();
+
+        return view('app.dashboard', compact(
+            'stats',
+            'questionAnalytics',
+            'dashboardSummary',
+            'cities',
+            'districts',
+            'villages',
+            'cityId',
+            'districtId',
+            'villageId',
+            'gender',
+            'category',
+            'categoryOptions'
+        ));
+    }
+
+    private function buildDashboardPayload($user, $cityId, $districtId, $villageId, ?string $gender, ?string $category): array
+    {
         $baseQuery = SurveyResponse::query();
         SurveyResponseAccess::applyVisibleScope($baseQuery, $user);
 
@@ -53,10 +90,16 @@ class DashboardController extends Controller
             'rejected' => (clone $baseQuery)->where('status', SurveyResponse::STATUS_REJECTED)->count(),
         ];
 
-        $responseIds = (clone $baseQuery)->pluck('id');
-        $responses = SurveyResponse::with(['respondent'])
-            ->whereIn('id', $responseIds)
+        $factReader = app(DashboardFactReader::class);
+        if ($factReader->hasFacts()) {
+            return $factReader->build($user, $cityId, $districtId, $villageId, $gender, $category, $stats);
+        }
+
+        $responses = (clone $baseQuery)
+            ->with(['respondent'])
+            ->limit(max(1, (int) config('dashboard.raw_fallback_limit', 5000)))
             ->get();
+        $responseIds = $responses->pluck('id');
 
         $answerPayloads = SurveyAnswer::whereIn('survey_response_id', $responseIds)
             ->whereNotNull('answer_json')
@@ -69,7 +112,11 @@ class DashboardController extends Controller
             });
 
         $questionAnalytics = $this->buildQuestionAnalytics($responses, $answerPayloads);
-        $categoryOptions = collect($questionAnalytics)->pluck('group')->unique()->values();
+        $categoryOptions = collect($questionAnalytics)
+            ->pluck('group')
+            ->filter(fn ($group): bool => is_string($group) && $group !== '')
+            ->unique()
+            ->values();
 
         if ($category && $categoryOptions->contains($category)) {
             $questionAnalytics = collect($questionAnalytics)
@@ -80,27 +127,13 @@ class DashboardController extends Controller
             $category = null;
         }
 
-        $dashboardSummary = $this->buildDashboardSummary($questionAnalytics, $responses->count());
-
-        $province = Region::active()->province()->first();
-        $cities = $province ? Region::active()->city()->where('parent_id', $province->id)->orderBy('name')->get() : collect();
-        $districts = $cityId ? Region::active()->district()->where('parent_id', $cityId)->orderBy('name')->get() : collect();
-        $villages = $districtId ? Region::active()->village()->where('parent_id', $districtId)->orderBy('name')->get() : collect();
-
-        return view('app.dashboard', compact(
-            'stats',
-            'questionAnalytics',
-            'dashboardSummary',
-            'cities',
-            'districts',
-            'villages',
-            'cityId',
-            'districtId',
-            'villageId',
-            'gender',
-            'category',
-            'categoryOptions'
-        ));
+        return [
+            'stats' => $stats,
+            'questionAnalytics' => $questionAnalytics,
+            'dashboardSummary' => $this->buildDashboardSummary($questionAnalytics, $responses->count()),
+            'categoryOptions' => $categoryOptions,
+            'category' => $category,
+        ];
     }
 
     private function buildQuestionAnalytics($responses, $answerPayloads): array

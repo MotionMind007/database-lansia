@@ -3,6 +3,7 @@
 use App\Http\Controllers\App\DashboardController;
 use App\Http\Controllers\App\DocumentController;
 use App\Http\Controllers\App\ExportController;
+use App\Http\Controllers\App\ActivityLogController;
 use App\Http\Controllers\App\LansiaController;
 use App\Http\Controllers\App\SurveyController;
 use App\Http\Controllers\App\VerificationController;
@@ -29,7 +30,7 @@ Route::post('/logout', [LoginController::class, 'logout'])
 // ═══════════════════════════════════════
 // FRONTEND APP (authenticated users)
 // ═══════════════════════════════════════
-Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
+Route::middleware(['auth', 'throttle:120,1'])->prefix('app')->name('app.')->group(function () {
 
     // Dashboard (semua role)
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
@@ -55,15 +56,22 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
 
     // Dokumen pendukung (authorized file serving)
     Route::get('/documents/{document}', [DocumentController::class, 'show'])->name('documents.show');
+    Route::get('/respondents/{respondent}/photo', [DocumentController::class, 'photo'])->name('respondents.photo');
 
     // Export (Administrator + Surveyor)
     Route::get('/export', [ExportController::class, 'export'])
-        ->middleware(CheckRole::class . ':administrator,surveyor')
+        ->middleware([CheckRole::class . ':administrator,surveyor', 'throttle:10,1'])
         ->name('export');
+
+    // Admin tools
+    Route::get('/activity-logs', [ActivityLogController::class, 'index'])
+        ->middleware(CheckRole::class . ':administrator,super admin,super_admin')
+        ->name('activity-logs.index');
 
     // AJAX: Wilayah cascade
     Route::get('/wilayah/districts', [SurveyController::class, 'getDistricts'])->name('wilayah.districts');
     Route::get('/wilayah/villages', [SurveyController::class, 'getVillages'])->name('wilayah.villages');
+    Route::get('/wilayah/villages/search', [SurveyController::class, 'searchVillages'])->name('wilayah.villages.search');
 });
 
 // Legacy redirect

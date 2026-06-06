@@ -12,7 +12,7 @@ class SurveyResponse extends Model
         'survey_id', 'respondent_id', 'questionnaire_number',
         'surveyor_id', 'region_id', 'interview_date',
         'status', 'surveyor_notes', 'submitted_at',
-        'verified_at', 'verified_by', 'created_by', 'updated_by',
+        'verified_at',
     ];
 
     protected $casts = [

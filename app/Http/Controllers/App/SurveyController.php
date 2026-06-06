@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\App;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SyncDashboardFacts;
 use App\Models\FamilyMember;
 use App\Models\Region;
 use App\Models\Respondent;
@@ -10,8 +11,10 @@ use App\Models\RespondentDocument;
 use App\Models\Survey;
 use App\Models\SurveyAnswer;
 use App\Models\SurveyResponse;
+use App\Support\SecureUploadStorage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SurveyController extends Controller
 {
@@ -33,6 +36,8 @@ class SurveyController extends Controller
      */
     public function store(Request $request)
     {
+        $survey = $this->activeSurvey();
+
         $request->validate([
             'questionnaire_number' => ['required', 'string', 'unique:survey_responses,questionnaire_number'],
             'region_id' => ['required', 'exists:regions,id'],
@@ -40,21 +45,16 @@ class SurveyController extends Controller
             'full_name' => ['required', 'string', 'max:255'],
             'gender' => ['required', 'in:male,female'],
             'age' => ['required', 'integer', 'min:1', 'max:150'],
-            'documents' => ['nullable', 'array'],
-            'documents.*' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
-            'photo' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:2048'],
+            ...$this->uploadValidationRules(),
         ], [
             'questionnaire_number.unique' => 'Nomor kuesioner sudah digunakan.',
             'full_name.required' => 'Nama lengkap wajib diisi.',
             'gender.required' => 'Jenis kelamin wajib dipilih.',
             'age.required' => 'Umur wajib diisi.',
-            'documents.*.mimes' => 'Dokumen harus berupa JPG, PNG, atau PDF.',
-            'documents.*.max' => 'Ukuran dokumen maksimal 5MB.',
-            'photo.mimes' => 'Foto harus berupa JPG atau PNG.',
-            'photo.max' => 'Ukuran foto maksimal 2MB.',
+            ...$this->uploadValidationMessages(),
         ]);
 
-        DB::transaction(function () use ($request) {
+        $response = DB::transaction(function () use ($request, $survey) {
             // 1. Simpan respondent
             $respondent = Respondent::create([
                 'full_name' => $request->full_name,
@@ -72,10 +72,7 @@ class SurveyController extends Controller
             ]);
 
             // Upload foto profil
-            if ($request->hasFile('photo') && $request->file('photo')->isValid()) {
-                $photoPath = $request->file('photo')->store('photos/'.$respondent->id, 'public');
-                $respondent->update(['photo_path' => $photoPath]);
-            }
+            $this->storeProfilePhoto($request, $respondent);
 
             // 2. Simpan anggota keluarga (B2)
             if ($request->has('rt_nama')) {
@@ -114,9 +111,8 @@ class SurveyController extends Controller
             $isDraft = $request->input('action') === 'draft';
 
             // 3. Simpan survey response
-            $survey = Survey::where('is_active', true)->first();
             $response = SurveyResponse::create([
-                'survey_id' => $survey?->id ?? 1,
+                'survey_id' => $survey->id,
                 'respondent_id' => $respondent->id,
                 'questionnaire_number' => $request->questionnaire_number,
                 'surveyor_id' => auth()->id(),
@@ -125,9 +121,12 @@ class SurveyController extends Controller
                 'status' => $isDraft ? SurveyResponse::STATUS_DRAFT : SurveyResponse::STATUS_SUBMITTED,
                 'surveyor_notes' => $request->surveyor_notes,
                 'submitted_at' => $isDraft ? null : now(),
+            ]);
+
+            $response->forceFill([
                 'created_by' => auth()->id(),
                 'updated_by' => auth()->id(),
-            ]);
+            ])->save();
 
             // 4. Simpan jawaban kuesioner sebagai JSON bulk (satu record per response)
             $answers = $this->extractAnswers($request);
@@ -142,29 +141,26 @@ class SurveyController extends Controller
             }
 
             // 5. Upload dokumen pendukung
-            if ($request->hasFile('documents')) {
-                foreach ($request->file('documents') as $type => $file) {
-                    if (! $file || ! $file->isValid()) {
-                        continue;
-                    }
-                    $path = $file->store('documents/'.$respondent->id, 'local');
-                    RespondentDocument::create([
-                        'respondent_id' => $respondent->id,
-                        'survey_response_id' => $response->id,
-                        'document_type' => $type,
-                        'file_path' => $path,
-                        'file_name' => $file->getClientOriginalName(),
-                        'mime_type' => $file->getMimeType(),
-                        'file_size' => $file->getSize(),
-                        'is_latest' => true,
-                        'uploaded_by' => auth()->id(),
-                    ]);
-                }
-            }
+            $this->storeSupportDocuments($request, $respondent, $response);
+
+            return $response;
         });
+
+        SyncDashboardFacts::dispatch($response->id);
 
         $action = $request->input('action');
         $message = $action === 'draft' ? 'Draft berhasil disimpan.' : 'Survey berhasil disubmit untuk diverifikasi.';
+
+        activity('survey')
+            ->causedBy(auth()->user())
+            ->performedOn($response)
+            ->event($action === 'draft' ? 'survey_draft_created' : 'survey_submitted')
+            ->withProperties([
+                'questionnaire_number' => $response->questionnaire_number,
+                'region_id' => $response->region_id,
+                'status' => $response->status,
+            ])
+            ->log($action === 'draft' ? 'Draft survey dibuat.' : 'Survey disubmit.');
 
         return redirect()->route('app.lansia.index')
             ->with('success', $message);
@@ -232,10 +228,8 @@ class SurveyController extends Controller
             'full_name' => ['required', 'string', 'max:255'],
             'gender' => ['required', 'in:male,female'],
             'age' => ['required', 'integer', 'min:1', 'max:150'],
-            'documents' => ['nullable', 'array'],
-            'documents.*' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
-            'photo' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:2048'],
-        ]);
+            ...$this->uploadValidationRules(),
+        ], $this->uploadValidationMessages());
 
         DB::transaction(function () use ($request, $response) {
             $respondent = $response->respondent;
@@ -257,10 +251,7 @@ class SurveyController extends Controller
             ]);
 
             // Upload foto profil baru (jika ada)
-            if ($request->hasFile('photo') && $request->file('photo')->isValid()) {
-                $photoPath = $request->file('photo')->store('photos/'.$respondent->id, 'public');
-                $respondent->update(['photo_path' => $photoPath]);
-            }
+            $this->storeProfilePhoto($request, $respondent);
 
             // 2. Update anggota keluarga (hapus lama, buat baru)
             $respondent->familyMembers()->delete();
@@ -307,8 +298,9 @@ class SurveyController extends Controller
                 'status' => $isDraft ? SurveyResponse::STATUS_DRAFT : SurveyResponse::STATUS_SUBMITTED,
                 'surveyor_notes' => $request->surveyor_notes,
                 'submitted_at' => $isDraft ? $response->submitted_at : now(),
-                'updated_by' => auth()->id(),
             ]);
+
+            $response->forceFill(['updated_by' => auth()->id()])->save();
 
             // 4. Update jawaban kuesioner
             $answers = $this->extractAnswers($request);
@@ -326,29 +318,24 @@ class SurveyController extends Controller
             }
 
             // 5. Upload dokumen pendukung baru (jika ada)
-            if ($request->hasFile('documents')) {
-                foreach ($request->file('documents') as $type => $file) {
-                    if (! $file || ! $file->isValid()) {
-                        continue;
-                    }
-                    $path = $file->store('documents/'.$respondent->id, 'local');
-                    RespondentDocument::create([
-                        'respondent_id' => $respondent->id,
-                        'survey_response_id' => $response->id,
-                        'document_type' => $type,
-                        'file_path' => $path,
-                        'file_name' => $file->getClientOriginalName(),
-                        'mime_type' => $file->getMimeType(),
-                        'file_size' => $file->getSize(),
-                        'is_latest' => true,
-                        'uploaded_by' => auth()->id(),
-                    ]);
-                }
-            }
+            $this->storeSupportDocuments($request, $respondent, $response);
         });
+
+        SyncDashboardFacts::dispatch($response->id);
 
         $action = $request->input('action');
         $message = $action === 'draft' ? 'Draft berhasil disimpan.' : 'Revisi berhasil disubmit untuk diverifikasi.';
+
+        activity('survey')
+            ->causedBy(auth()->user())
+            ->performedOn($response)
+            ->event($action === 'draft' ? 'survey_draft_updated' : 'survey_revision_submitted')
+            ->withProperties([
+                'questionnaire_number' => $response->questionnaire_number,
+                'region_id' => $response->region_id,
+                'status' => $response->status,
+            ])
+            ->log($action === 'draft' ? 'Draft survey diperbarui.' : 'Revisi survey disubmit.');
 
         return redirect()->route('app.lansia.show', $response->id)
             ->with('success', $message);
@@ -357,6 +344,108 @@ class SurveyController extends Controller
     /**
      * Extract all form answers into an organized array.
      */
+    private function uploadValidationRules(): array
+    {
+        $documentTypes = implode(',', array_keys(config('uploads.documents.types')));
+
+        return [
+            'documents' => ['nullable', 'array:'.$documentTypes],
+            'documents.*' => [
+                'nullable',
+                'file',
+                'mimes:'.implode(',', config('uploads.documents.mimes')),
+                'mimetypes:'.implode(',', config('uploads.documents.mimetypes')),
+                'max:'.config('uploads.documents.max_kb'),
+            ],
+            'photo' => [
+                'nullable',
+                'file',
+                'mimes:'.implode(',', config('uploads.photos.mimes')),
+                'mimetypes:'.implode(',', config('uploads.photos.mimetypes')),
+                'max:'.config('uploads.photos.max_kb'),
+            ],
+        ];
+    }
+
+    private function activeSurvey(): Survey
+    {
+        $survey = Survey::where('is_active', true)->first();
+
+        if (! $survey) {
+            throw ValidationException::withMessages([
+                'survey' => 'Belum ada survey aktif. Hubungi administrator sebelum input data.',
+            ]);
+        }
+
+        return $survey;
+    }
+
+    private function uploadValidationMessages(): array
+    {
+        return [
+            'documents.array' => 'Tipe dokumen tidak valid.',
+            'documents.*.mimes' => 'Dokumen harus berupa JPG, PNG, atau PDF.',
+            'documents.*.mimetypes' => 'Isi dokumen harus benar-benar JPG, PNG, atau PDF.',
+            'documents.*.max' => 'Ukuran dokumen maksimal 5MB.',
+            'photo.mimes' => 'Foto harus berupa JPG atau PNG.',
+            'photo.mimetypes' => 'Isi foto harus benar-benar JPG atau PNG.',
+            'photo.max' => 'Ukuran foto maksimal 2MB.',
+        ];
+    }
+
+    private function storeProfilePhoto(Request $request, Respondent $respondent): void
+    {
+        if (! $request->hasFile('photo') || ! $request->file('photo')->isValid()) {
+            return;
+        }
+
+        $storage = app(SecureUploadStorage::class);
+        $oldPath = $respondent->photo_path;
+        $path = $storage->storeProfilePhoto($request->file('photo'), $respondent);
+
+        $respondent->update(['photo_path' => $path]);
+
+        if ($oldPath && $oldPath !== $path) {
+            DB::afterCommit(fn () => $storage->delete($oldPath, ['photos']));
+        }
+    }
+
+    private function storeSupportDocuments(Request $request, Respondent $respondent, SurveyResponse $response): void
+    {
+        if (! $request->hasFile('documents')) {
+            return;
+        }
+
+        $allowedTypes = array_keys(config('uploads.documents.types'));
+        $storage = app(SecureUploadStorage::class);
+
+        foreach ($request->file('documents', []) as $type => $file) {
+            if (! in_array($type, $allowedTypes, true) || ! $file || ! $file->isValid()) {
+                continue;
+            }
+
+            $stored = $storage->storeDocument($file, $respondent);
+
+            RespondentDocument::query()
+                ->where('respondent_id', $respondent->id)
+                ->where('document_type', $type)
+                ->where('is_latest', true)
+                ->update(['is_latest' => false]);
+
+            RespondentDocument::create([
+                'respondent_id' => $respondent->id,
+                'survey_response_id' => $response->id,
+                'document_type' => $type,
+                'file_path' => $stored['file_path'],
+                'file_name' => $stored['file_name'],
+                'mime_type' => $stored['mime_type'],
+                'file_size' => $stored['file_size'],
+                'is_latest' => true,
+                'uploaded_by' => auth()->id(),
+            ]);
+        }
+    }
+
     private function extractAnswers(Request $request): array
     {
         return [
@@ -509,5 +598,38 @@ class SurveyController extends Controller
             ->get(['id', 'name']);
 
         return response()->json($villages);
+    }
+
+    public function searchVillages(Request $request)
+    {
+        $search = trim((string) $request->query('q', ''));
+
+        if (mb_strlen($search) < 2) {
+            return response()->json([]);
+        }
+
+        $likeOperator = DB::getDriverName() === 'pgsql' ? 'ilike' : 'like';
+
+        $villages = Region::active()
+            ->village()
+            ->with('parent.parent')
+            ->where(function ($query) use ($search, $likeOperator): void {
+                $query->where('name', $likeOperator, "%{$search}%")
+                    ->orWhereHas('parent', fn ($district) => $district->where('name', $likeOperator, "%{$search}%"))
+                    ->orWhereHas('parent.parent', fn ($city) => $city->where('name', $likeOperator, "%{$search}%"));
+            })
+            ->orderBy('name')
+            ->limit(50)
+            ->get();
+
+        return response()->json($villages->map(fn (Region $village): array => [
+            'id' => $village->id,
+            'name' => $village->name,
+            'district' => $village->parent?->name,
+            'city' => $village->parent?->parent?->name,
+            'label' => collect([$village->name, $village->parent?->name, $village->parent?->parent?->name])
+                ->filter()
+                ->join(' / '),
+        ])->values());
     }
 }

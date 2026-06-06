@@ -10,11 +10,11 @@ return new class extends Migration
     {
         Schema::create('survey_responses', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('survey_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('respondent_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('survey_id')->constrained()->restrictOnDelete();
+            $table->foreignId('respondent_id')->constrained()->restrictOnDelete();
             $table->string('questionnaire_number')->unique();
-            $table->foreignId('surveyor_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('region_id')->constrained('regions')->cascadeOnDelete();
+            $table->foreignId('surveyor_id')->constrained('users')->restrictOnDelete();
+            $table->foreignId('region_id')->constrained('regions')->restrictOnDelete();
             $table->date('interview_date');
             $table->enum('status', [
                 'draft', 'submitted', 'need_revision', 'verified', 'rejected'

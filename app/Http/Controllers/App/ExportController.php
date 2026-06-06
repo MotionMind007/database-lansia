@@ -4,6 +4,7 @@ namespace App\Http\Controllers\App;
 
 use App\Http\Controllers\Controller;
 use App\Models\SurveyResponse;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -13,12 +14,13 @@ class ExportController extends Controller
     {
         $format = $request->get('format', 'csv');
 
-        $query = SurveyResponse::with(['respondent', 'surveyor', 'region', 'answers']);
+        $query = SurveyResponse::query()
+            ->with(['respondent', 'surveyor', 'region'])
+            ->select('survey_responses.*');
 
         // Role scoping
         $user = auth()->user();
-        $role = $user->getRoleNames()->first();
-        if ($role === 'surveyor') {
+        if ($user->hasRole('surveyor') && ! $user->hasAnyRole(['administrator', 'super admin', 'super_admin'])) {
             $query->where('surveyor_id', $user->id);
         }
 
@@ -30,20 +32,29 @@ class ExportController extends Controller
             $query->where('region_id', $request->region_id);
         }
 
-        $responses = $query->orderByDesc('created_at')->get();
-
         if ($format === 'csv') {
-            return $this->exportCsv($responses);
+            activity('export')
+                ->causedBy($user)
+                ->event('export_csv')
+                ->withProperties([
+                    'format' => 'csv',
+                    'filters' => $request->only(['status', 'region_id']),
+                    'ip' => $request->ip(),
+                    'user_agent' => substr((string) $request->userAgent(), 0, 255),
+                ])
+                ->log('User export data lansia.');
+
+            return $this->exportCsv($query);
         }
 
-        return $this->exportCsv($responses); // default to CSV for now
+        return $this->exportCsv($query); // default to CSV for now
     }
 
-    private function exportCsv($responses): StreamedResponse
+    private function exportCsv(Builder $query): StreamedResponse
     {
         $filename = 'data_lansia_'.date('Ymd_His').'.csv';
 
-        return response()->streamDownload(function () use ($responses) {
+        return response()->streamDownload(function () use ($query) {
             $handle = fopen('php://output', 'w');
 
             // BOM for Excel UTF-8
@@ -72,10 +83,12 @@ class ExportController extends Controller
                 'Tanggal Verifikasi',
             ]);
 
-            foreach ($responses as $i => $resp) {
+            $rowNumber = 1;
+
+            foreach ((clone $query)->lazyById(1000) as $resp) {
                 $r = $resp->respondent;
                 fputcsv($handle, [
-                    $i + 1,
+                    $rowNumber++,
                     self::safeCsvValue($resp->questionnaire_number),
                     self::safeCsvValue($r?->full_name ?? '-'),
                     self::safeCsvValue($r?->gender === 'male' ? 'Laki-laki' : 'Perempuan'),

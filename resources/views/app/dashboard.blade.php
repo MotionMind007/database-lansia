@@ -167,7 +167,10 @@
                 <select name="category" class="dashboard-filter-select w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700 focus:border-sky-400 outline-none" onchange="this.form.submit()">
                     <option value="">Semua Kategori</option>
                     @foreach($categoryOptions as $option)
-                    <option value="{{ $option }}" {{ $category === $option ? 'selected' : '' }}>{{ $option }}</option>
+                    @php $optionLabel = is_array($option) ? ($option['label'] ?? $option['group'] ?? '') : (string) $option; @endphp
+                    @if($optionLabel !== '')
+                    <option value="{{ $optionLabel }}" {{ $category === $optionLabel ? 'selected' : '' }}>{{ $optionLabel }}</option>
+                    @endif
                     @endforeach
                 </select>
             </div>

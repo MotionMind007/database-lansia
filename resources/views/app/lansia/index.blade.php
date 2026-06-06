@@ -35,17 +35,19 @@
             <div class="flex flex-wrap items-end gap-3">
                 <div class="flex-1 min-w-[180px]">
                     <label class="block text-[0.68rem] text-gray-500 font-medium mb-1">Wilayah</label>
-                    <select name="region_id" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700 focus:border-sky-400 outline-none">
-                        <option value="">Semua Wilayah</option>
-                        @foreach($regions as $region)
-                        <option value="{{ $region->id }}" {{ request('region_id') == $region->id ? 'selected' : '' }}>
-                            {{ $region->name }} ({{ $region->parent?->name }})
-                        </option>
-                        @endforeach
-                    </select>
+                    <div class="relative" data-region-search data-search-url="{{ route('app.wilayah.villages.search') }}">
+                        <input type="hidden" name="region_id" value="{{ $selectedRegion?->id }}" data-region-value>
+                        <input type="text"
+                               value="{{ $selectedRegion ? collect([$selectedRegion->name, $selectedRegion->parent?->name, $selectedRegion->parent?->parent?->name])->filter()->join(' / ') : '' }}"
+                               placeholder="Ketik nama kelurahan, distrik, atau kab/kota"
+                               autocomplete="off"
+                               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700 focus:border-sky-400 outline-none"
+                               data-region-input>
+                        <div class="searchable-select-menu left-0 right-0 top-full mt-1" data-region-results></div>
+                    </div>
                 </div>
 
-                @if(auth()->user()->getRoleNames()->first() === 'administrator')
+                @if(auth()->user()->hasAnyRole(['administrator', 'super admin', 'super_admin']))
                 <div class="flex-1 min-w-[160px]">
                     <label class="block text-[0.68rem] text-gray-500 font-medium mb-1">Surveyor</label>
                     <select name="surveyor_id" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700 focus:border-sky-400 outline-none">
@@ -160,3 +162,82 @@
 
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.querySelectorAll('[data-region-search]').forEach(function (root) {
+    const input = root.querySelector('[data-region-input]');
+    const hidden = root.querySelector('[data-region-value]');
+    const results = root.querySelector('[data-region-results]');
+    const url = root.dataset.searchUrl;
+    let controller = null;
+    let timer = null;
+
+    function close() {
+        results.classList.remove('open');
+        results.innerHTML = '';
+    }
+
+    function render(items) {
+        results.innerHTML = '';
+
+        if (items.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'searchable-select-empty';
+            empty.textContent = 'Data wilayah tidak ditemukan';
+            results.appendChild(empty);
+        } else {
+            items.forEach(function (item) {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'searchable-select-option';
+                button.textContent = item.label;
+                button.addEventListener('mousedown', function (event) {
+                    event.preventDefault();
+                    hidden.value = item.id;
+                    input.value = item.label;
+                    close();
+                });
+                results.appendChild(button);
+            });
+        }
+
+        results.classList.add('open');
+    }
+
+    input.addEventListener('input', function () {
+        hidden.value = '';
+        window.clearTimeout(timer);
+
+        const query = input.value.trim();
+        if (query.length < 2) {
+            close();
+            return;
+        }
+
+        timer = window.setTimeout(function () {
+            if (controller) {
+                controller.abort();
+            }
+
+            controller = new AbortController();
+            fetch(url + '?q=' + encodeURIComponent(query), {
+                headers: { 'Accept': 'application/json' },
+                signal: controller.signal,
+            })
+                .then(function (response) { return response.json(); })
+                .then(render)
+                .catch(function (error) {
+                    if (error.name !== 'AbortError') {
+                        close();
+                    }
+                });
+        }, 220);
+    });
+
+    input.addEventListener('blur', function () {
+        window.setTimeout(close, 120);
+    });
+});
+</script>
+@endpush
