@@ -177,6 +177,31 @@ class SecurityRegressionTest extends TestCase
         $this->assertStringContainsString("CheckboxList::make('roles')", $form);
     }
 
+    public function test_survey_controller_uses_form_requests_for_store_and_update(): void
+    {
+        $controller = file_get_contents(app_path('Http/Controllers/App/SurveyController.php'));
+
+        $this->assertStringContainsString('public function store(StoreSurveyRequest $request)', $controller);
+        $this->assertStringContainsString('public function update(UpdateSurveyRequest $request, $id)', $controller);
+        $this->assertStringNotContainsString('$request->validate([', $controller);
+    }
+
+    public function test_survey_create_and_edit_views_use_shared_partials(): void
+    {
+        $create = file_get_contents(resource_path('views/app/survey/create.blade.php'));
+        $edit = file_get_contents(resource_path('views/app/survey/edit.blade.php'));
+
+        foreach ([$create, $edit] as $view) {
+            $this->assertStringContainsString("@include('app.survey.partials.styles')", $view);
+            $this->assertStringContainsString("@include('app.survey.partials.steps')", $view);
+            $this->assertStringNotContainsString('@push(\'styles\')', $view);
+            $this->assertSame(1, substr_count($view, "document.addEventListener('DOMContentLoaded'"));
+        }
+
+        $this->assertFileExists(resource_path('views/app/survey/partials/styles.blade.php'));
+        $this->assertFileExists(resource_path('views/app/survey/partials/steps.blade.php'));
+    }
+
     public function test_secure_upload_storage_rejects_unsafe_paths(): void
     {
         $storage = new SecureUploadStorage();

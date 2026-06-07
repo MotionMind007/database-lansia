@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\App;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\App\StoreSurveyRequest;
+use App\Http\Requests\App\UpdateSurveyRequest;
 use App\Jobs\SyncDashboardFacts;
 use App\Models\FamilyMember;
 use App\Models\Region;
@@ -34,25 +36,9 @@ class SurveyController extends Controller
     /**
      * Save as draft or submit.
      */
-    public function store(Request $request)
+    public function store(StoreSurveyRequest $request)
     {
         $survey = $this->activeSurvey();
-
-        $request->validate([
-            'questionnaire_number' => ['required', 'string', 'unique:survey_responses,questionnaire_number'],
-            'region_id' => ['required', 'exists:regions,id'],
-            'interview_date' => ['required', 'date'],
-            'full_name' => ['required', 'string', 'max:255'],
-            'gender' => ['required', 'in:male,female'],
-            'age' => ['required', 'integer', 'min:1', 'max:150'],
-            ...$this->uploadValidationRules(),
-        ], [
-            'questionnaire_number.unique' => 'Nomor kuesioner sudah digunakan.',
-            'full_name.required' => 'Nama lengkap wajib diisi.',
-            'gender.required' => 'Jenis kelamin wajib dipilih.',
-            'age.required' => 'Umur wajib diisi.',
-            ...$this->uploadValidationMessages(),
-        ]);
 
         $response = DB::transaction(function () use ($request, $survey) {
             // 1. Simpan respondent
@@ -208,7 +194,7 @@ class SurveyController extends Controller
     /**
      * Update the survey (revision).
      */
-    public function update(Request $request, $id)
+    public function update(UpdateSurveyRequest $request, $id)
     {
         $response = SurveyResponse::with(['respondent.familyMembers', 'answers'])->findOrFail($id);
 
@@ -220,16 +206,6 @@ class SurveyController extends Controller
         if (! $user->hasRole('administrator') && $response->surveyor_id !== $user->id) {
             abort(403, 'Anda tidak memiliki akses untuk merevisi data ini.');
         }
-
-        $request->validate([
-            'questionnaire_number' => ['required', 'string', 'unique:survey_responses,questionnaire_number,'.$id],
-            'region_id' => ['required', 'exists:regions,id'],
-            'interview_date' => ['required', 'date'],
-            'full_name' => ['required', 'string', 'max:255'],
-            'gender' => ['required', 'in:male,female'],
-            'age' => ['required', 'integer', 'min:1', 'max:150'],
-            ...$this->uploadValidationRules(),
-        ], $this->uploadValidationMessages());
 
         DB::transaction(function () use ($request, $response) {
             $respondent = $response->respondent;
@@ -341,32 +317,6 @@ class SurveyController extends Controller
             ->with('success', $message);
     }
 
-    /**
-     * Extract all form answers into an organized array.
-     */
-    private function uploadValidationRules(): array
-    {
-        $documentTypes = implode(',', array_keys(config('uploads.documents.types')));
-
-        return [
-            'documents' => ['nullable', 'array:'.$documentTypes],
-            'documents.*' => [
-                'nullable',
-                'file',
-                'mimes:'.implode(',', config('uploads.documents.mimes')),
-                'mimetypes:'.implode(',', config('uploads.documents.mimetypes')),
-                'max:'.config('uploads.documents.max_kb'),
-            ],
-            'photo' => [
-                'nullable',
-                'file',
-                'mimes:'.implode(',', config('uploads.photos.mimes')),
-                'mimetypes:'.implode(',', config('uploads.photos.mimetypes')),
-                'max:'.config('uploads.photos.max_kb'),
-            ],
-        ];
-    }
-
     private function activeSurvey(): Survey
     {
         $survey = Survey::where('is_active', true)->first();
@@ -378,19 +328,6 @@ class SurveyController extends Controller
         }
 
         return $survey;
-    }
-
-    private function uploadValidationMessages(): array
-    {
-        return [
-            'documents.array' => 'Tipe dokumen tidak valid.',
-            'documents.*.mimes' => 'Dokumen harus berupa JPG, PNG, atau PDF.',
-            'documents.*.mimetypes' => 'Isi dokumen harus benar-benar JPG, PNG, atau PDF.',
-            'documents.*.max' => 'Ukuran dokumen maksimal 5MB.',
-            'photo.mimes' => 'Foto harus berupa JPG atau PNG.',
-            'photo.mimetypes' => 'Isi foto harus benar-benar JPG atau PNG.',
-            'photo.max' => 'Ukuran foto maksimal 2MB.',
-        ];
     }
 
     private function storeProfilePhoto(Request $request, Respondent $respondent): void
