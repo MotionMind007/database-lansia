@@ -10,6 +10,12 @@ Jalankan app lokal di port 8080:
 php artisan serve --host=127.0.0.1 --port=8080
 ```
 
+Untuk local performance test yang lebih mendekati production, gunakan PostgreSQL + Redis via Docker Desktop:
+
+```text
+docs/local-docker-postgres-redis.md
+```
+
 Jalankan worker queue untuk proses analitik:
 
 ```bash

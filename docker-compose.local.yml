@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lansia-papua-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lansia_papua
+      POSTGRES_USER: lansia
+      POSTGRES_PASSWORD: lansia_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - lansia_papua_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lansia -d lansia_papua"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: lansia-papua-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - lansia_papua_redis:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  lansia_papua_postgres:
+  lansia_papua_redis:
