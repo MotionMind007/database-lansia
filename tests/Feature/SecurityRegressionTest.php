@@ -202,6 +202,17 @@ class SecurityRegressionTest extends TestCase
         $this->assertFileExists(resource_path('views/app/survey/partials/steps.blade.php'));
     }
 
+    public function test_dashboard_controller_uses_shared_question_catalog(): void
+    {
+        $controller = file_get_contents(app_path('Http/Controllers/App/DashboardController.php'));
+
+        $this->assertStringContainsString('DashboardQuestionCatalog::items()', $controller);
+        $this->assertStringContainsString('DashboardQuestionCatalog::specialItems()', $controller);
+        $this->assertStringContainsString('DashboardQuestionCatalog::frequencyOptions()', $controller);
+        $this->assertStringNotContainsString('private function questionCatalog', $controller);
+        $this->assertStringNotContainsString('private function frequencyOptions', $controller);
+    }
+
     public function test_database_backup_operational_files_are_present(): void
     {
         $console = file_get_contents(base_path('routes/console.php'));
@@ -232,6 +243,17 @@ class SecurityRegressionTest extends TestCase
         $this->assertFileExists(base_path('deploy/cron/lansia-papua-production-status.cron.example'));
         $this->assertStringContainsString('docs/incident-runbook.md', $operations);
         $this->assertStringContainsString('deploy/cron/lansia-papua-production-status.cron.example', $operations);
+    }
+
+    public function test_local_stress_test_seeder_matches_documentation(): void
+    {
+        $docs = file_get_contents(base_path('docs/local-docker-postgres-redis.md'));
+        $seeder = file_get_contents(database_path('seeders/DemoSurveyResponseSeeder.php'));
+
+        $this->assertFileExists(database_path('seeders/DemoSurveyResponseSeeder.php'));
+        $this->assertStringContainsString('DemoSurveyResponseSeeder', $docs);
+        $this->assertStringContainsString('DEMO_SURVEY_COUNT', $seeder);
+        $this->assertStringContainsString('DEMO_SURVEY_RESET', $seeder);
     }
 
     public function test_secure_upload_storage_rejects_unsafe_paths(): void
