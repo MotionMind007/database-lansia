@@ -2,6 +2,7 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Respondent;
 use App\Models\RespondentDocument;
@@ -11,6 +12,7 @@ use App\Support\DashboardBenchmark;
 use App\Support\DashboardFactBuilder;
 use App\Support\DashboardHealthCheck;
 use App\Support\SecureUploadStorage;
+use Symfony\Component\Process\Process;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -109,6 +111,232 @@ Artisan::command('dashboard:benchmark {--iterations=3} {--rebuild} {--chunk=500}
 
     return 0;
 })->purpose('Benchmark dashboard stats, analytics facts, health checks, and optional fact rebuild');
+
+Artisan::command('app:backup-database {--connection= : Database connection name} {--keep= : Number of latest backups to keep}', function () {
+    $connectionName = $this->option('connection') ?: config('database.default');
+    $connection = config("database.connections.{$connectionName}");
+
+    if (! is_array($connection)) {
+        $this->error("Database connection [{$connectionName}] is not configured.");
+
+        return 1;
+    }
+
+    $diskName = config('backup.database.disk');
+    $backupPath = trim((string) config('backup.database.path'), '/');
+    $keepLatest = max(1, (int) ($this->option('keep') ?: config('backup.database.keep_latest')));
+    $disk = Storage::disk($diskName);
+
+    if (! method_exists($disk, 'path')) {
+        $this->error("Backup disk [{$diskName}] must support local filesystem paths.");
+
+        return 1;
+    }
+
+    $directory = $disk->path($backupPath);
+    File::ensureDirectoryExists($directory);
+
+    $driver = $connection['driver'] ?? null;
+    $database = $connection['database'] ?? null;
+    $timestamp = now()->format('Ymd_His');
+    $baseName = "database_{$connectionName}_{$timestamp}";
+
+    $this->info("Creating {$driver} database backup for connection [{$connectionName}]...");
+
+    if ($driver === 'sqlite') {
+        if (! is_string($database) || $database === ':memory:' || $database === '') {
+            $this->error('SQLite in-memory databases cannot be backed up to a file.');
+
+            return 1;
+        }
+
+        $databasePath = realpath($database) ?: $database;
+
+        if (! is_file($databasePath)) {
+            $this->error("SQLite database file was not found: {$databasePath}");
+
+            return 1;
+        }
+
+        $target = $directory.DIRECTORY_SEPARATOR.$baseName.'.sqlite';
+
+        if (! File::copy($databasePath, $target)) {
+            $this->error("Failed to copy SQLite database to {$target}");
+
+            return 1;
+        }
+    } elseif (in_array($driver, ['mysql', 'mariadb'], true)) {
+        if (! is_string($database) || $database === '') {
+            $this->error("Database name is required for connection [{$connectionName}].");
+
+            return 1;
+        }
+
+        $target = $directory.DIRECTORY_SEPARATOR.$baseName.'.sql';
+        $process = new Process([
+            (string) config('backup.database.mysql_dump_binary'),
+            '--single-transaction',
+            '--quick',
+            '--routines',
+            '--triggers',
+            '--host='.($connection['host'] ?? '127.0.0.1'),
+            '--port='.(string) ($connection['port'] ?? 3306),
+            '--user='.(string) ($connection['username'] ?? ''),
+            (string) $database,
+        ]);
+
+        if (! empty($connection['password'])) {
+            $process->setEnv(['MYSQL_PWD' => (string) $connection['password']]);
+        }
+
+        $process->setTimeout(3600);
+        File::put($target, '');
+        $process->run(function (string $type, string $buffer) use ($target): void {
+            if ($type === Process::OUT) {
+                File::append($target, $buffer);
+            }
+        });
+
+        if (! $process->isSuccessful()) {
+            File::delete($target);
+            $this->error(trim($process->getErrorOutput()) ?: 'mysqldump failed.');
+
+            return 1;
+        }
+    } elseif ($driver === 'pgsql') {
+        if (! is_string($database) || $database === '') {
+            $this->error("Database name is required for connection [{$connectionName}].");
+
+            return 1;
+        }
+
+        $target = $directory.DIRECTORY_SEPARATOR.$baseName.'.sql';
+        $process = new Process([
+            (string) config('backup.database.pg_dump_binary'),
+            '--format=plain',
+            '--no-owner',
+            '--no-privileges',
+            '--host='.($connection['host'] ?? '127.0.0.1'),
+            '--port='.(string) ($connection['port'] ?? 5432),
+            '--username='.(string) ($connection['username'] ?? ''),
+            (string) $database,
+        ]);
+
+        if (! empty($connection['password'])) {
+            $process->setEnv(['PGPASSWORD' => (string) $connection['password']]);
+        }
+
+        $process->setTimeout(3600);
+        File::put($target, '');
+        $process->run(function (string $type, string $buffer) use ($target): void {
+            if ($type === Process::OUT) {
+                File::append($target, $buffer);
+            }
+        });
+
+        if (! $process->isSuccessful()) {
+            File::delete($target);
+            $this->error(trim($process->getErrorOutput()) ?: 'pg_dump failed.');
+
+            return 1;
+        }
+    } else {
+        $this->error("Database driver [{$driver}] is not supported by app:backup-database.");
+
+        return 1;
+    }
+
+    $files = collect(File::files($directory))
+        ->filter(fn ($file): bool => str_starts_with($file->getFilename(), "database_{$connectionName}_"))
+        ->sortByDesc(fn ($file): int => $file->getMTime())
+        ->values();
+
+    $files->slice($keepLatest)->each(fn ($file) => File::delete($file->getPathname()));
+
+    $relativeTarget = $backupPath.'/'.basename($target);
+
+    $this->info("Backup saved: {$relativeTarget}");
+    $this->line('Retained latest backups: '.$keepLatest);
+
+    return 0;
+})->purpose('Create a local database backup and prune old backup files');
+
+Artisan::command('app:production-status {--fail-on-warning}', function (DashboardHealthCheck $healthCheck) {
+    $dashboardReport = $healthCheck->run();
+    $backupDisk = config('backup.database.disk');
+    $backupPath = trim((string) config('backup.database.path'), '/');
+    $maxBackupAgeHours = max(1, (int) config('backup.database.max_age_hours'));
+    $backupStatus = 'warning';
+    $backupDetail = 'no database backup found';
+    $latestBackup = null;
+
+    try {
+        $disk = Storage::disk($backupDisk);
+
+        if (method_exists($disk, 'path')) {
+            $directory = $disk->path($backupPath);
+            $latestBackup = is_dir($directory)
+                ? collect(File::files($directory))
+                    ->filter(fn ($file): bool => str_starts_with($file->getFilename(), 'database_'))
+                    ->sortByDesc(fn ($file): int => $file->getMTime())
+                    ->first()
+                : null;
+
+            if ($latestBackup) {
+                $ageHours = (int) floor(max(0, time() - $latestBackup->getMTime()) / 3600);
+                $backupStatus = $ageHours <= $maxBackupAgeHours ? 'ok' : 'warning';
+                $backupDetail = $latestBackup->getFilename().' ('.$ageHours.'h old, '.number_format($latestBackup->getSize()).' bytes)';
+            }
+        } else {
+            $backupDetail = "backup disk [{$backupDisk}] does not expose local paths";
+        }
+    } catch (\Throwable $e) {
+        $backupDetail = 'backup check failed: '.$e->getMessage();
+    }
+
+    $checks = collect($dashboardReport['checks'])
+        ->map(fn (array $check): array => [
+            'status' => $check['status'],
+            'name' => 'dashboard: '.$check['name'],
+            'detail' => $check['detail'],
+        ])
+        ->push([
+            'status' => $backupStatus,
+            'name' => 'database backup freshness',
+            'detail' => $backupDetail,
+        ]);
+
+    $status = $checks->contains(fn (array $check): bool => $check['status'] !== 'ok') ? 'warning' : 'ok';
+
+    $this->info('Production status: '.strtoupper($status));
+    $this->newLine();
+
+    $this->table(['Metric', 'Value'], [
+        ['Environment', app()->environment()],
+        ['Queue connection', config('queue.default')],
+        ['Cache store', config('cache.default')],
+        ['Backup max age', $maxBackupAgeHours.' hours'],
+        ['Dashboard status', strtoupper($dashboardReport['status'])],
+    ]);
+
+    $this->table(
+        ['Status', 'Check', 'Detail'],
+        $checks
+            ->map(fn (array $check): array => [
+                strtoupper($check['status']),
+                $check['name'],
+                $check['detail'],
+            ])
+            ->values()
+            ->all()
+    );
+
+    if ($status !== 'ok' && $this->option('fail-on-warning')) {
+        return 1;
+    }
+
+    return 0;
+})->purpose('Report production dashboard, queue, and backup readiness status');
 
 Artisan::command('uploads:prune-orphans {--delete : Delete orphan files instead of reporting only} {--legacy : Also scan the legacy public upload disk}', function (SecureUploadStorage $secureStorage) {
     $delete = (bool) $this->option('delete');

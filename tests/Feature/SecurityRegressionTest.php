@@ -202,6 +202,38 @@ class SecurityRegressionTest extends TestCase
         $this->assertFileExists(resource_path('views/app/survey/partials/steps.blade.php'));
     }
 
+    public function test_database_backup_operational_files_are_present(): void
+    {
+        $console = file_get_contents(base_path('routes/console.php'));
+        $databaseQueueEnv = file_get_contents(base_path('deploy/env/production.database-queue.env.example'));
+        $redisEnv = file_get_contents(base_path('deploy/env/production.redis.env.example'));
+
+        $this->assertStringContainsString('app:backup-database', $console);
+        $this->assertStringContainsString('Symfony\Component\Process\Process', $console);
+        $this->assertFileExists(config_path('backup.php'));
+        $this->assertFileExists(base_path('docs/backup-restore.md'));
+        $this->assertFileExists(base_path('deploy/cron/lansia-papua-database-backup.cron.example'));
+
+        foreach ([$databaseQueueEnv, $redisEnv] as $env) {
+            $this->assertStringContainsString('BACKUP_DATABASE_PATH=backups/database', $env);
+            $this->assertStringContainsString('BACKUP_DATABASE_KEEP_LATEST=14', $env);
+            $this->assertStringContainsString('BACKUP_DATABASE_MAX_AGE_HOURS=26', $env);
+        }
+    }
+
+    public function test_production_monitoring_operational_files_are_present(): void
+    {
+        $console = file_get_contents(base_path('routes/console.php'));
+        $operations = file_get_contents(base_path('docs/production-operations.md'));
+
+        $this->assertStringContainsString('app:production-status', $console);
+        $this->assertStringContainsString('database backup freshness', $console);
+        $this->assertFileExists(base_path('docs/incident-runbook.md'));
+        $this->assertFileExists(base_path('deploy/cron/lansia-papua-production-status.cron.example'));
+        $this->assertStringContainsString('docs/incident-runbook.md', $operations);
+        $this->assertStringContainsString('deploy/cron/lansia-papua-production-status.cron.example', $operations);
+    }
+
     public function test_secure_upload_storage_rejects_unsafe_paths(): void
     {
         $storage = new SecureUploadStorage();

@@ -137,6 +137,40 @@ class CoreWorkflowTest extends TestCase
         Queue::assertPushed(SyncDashboardFacts::class);
     }
 
+    public function test_verifikator_can_request_revision_with_note(): void
+    {
+        Queue::fake();
+        $this->seedSurveyPrerequisites();
+        $surveyor = $this->userWithRole('surveyor');
+        $verifikator = $this->userWithRole('verifikator');
+        $response = $this->surveyResponseFor($surveyor, [
+            'questionnaire_number' => 'REV-001',
+            'status' => SurveyResponse::STATUS_SUBMITTED,
+            'submitted_at' => now(),
+        ]);
+
+        $this->actingAs($verifikator)
+            ->post(route('app.verification.verify', $response->id), [
+                'status' => SurveyResponse::STATUS_NEED_REVISION,
+                'note' => 'Mohon lengkapi data kesehatan responden.',
+            ])
+            ->assertRedirect(route('app.verification.index'));
+
+        $response->refresh();
+
+        $this->assertSame(SurveyResponse::STATUS_NEED_REVISION, $response->status);
+        $this->assertSame($verifikator->id, $response->verified_by);
+        $this->assertNull($response->verified_at);
+        $this->assertDatabaseHas('verification_logs', [
+            'survey_response_id' => $response->id,
+            'status' => SurveyResponse::STATUS_NEED_REVISION,
+            'note' => 'Mohon lengkapi data kesehatan responden.',
+            'verified_by' => $verifikator->id,
+        ]);
+
+        Queue::assertPushed(SyncDashboardFacts::class);
+    }
+
     public function test_admin_and_surveyor_can_export_csv_but_verifikator_cannot(): void
     {
         $this->seedSurveyPrerequisites();
@@ -162,11 +196,21 @@ class CoreWorkflowTest extends TestCase
     public function test_admin_can_open_activity_log(): void
     {
         $admin = $this->userWithRole('administrator');
+        $surveyor = $this->userWithRole('surveyor');
+        $verifikator = $this->userWithRole('verifikator');
 
         $this->actingAs($admin)
             ->get(route('app.activity-logs.index'))
             ->assertOk()
             ->assertSee('Log Aktivitas');
+
+        $this->actingAs($surveyor)
+            ->get(route('app.activity-logs.index'))
+            ->assertForbidden();
+
+        $this->actingAs($verifikator)
+            ->get(route('app.activity-logs.index'))
+            ->assertForbidden();
     }
 
     public function test_region_village_search_requires_auth_and_returns_limited_json(): void

@@ -1,0 +1,1 @@
+5 * * * * cd /var/www/lansia-papua && php artisan app:production-status --fail-on-warning >> storage/logs/production-status.log 2>&1

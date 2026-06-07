@@ -94,6 +94,17 @@ DOCUMENT_UPLOAD_MAX_KB=5120
 PHOTO_UPLOAD_MAX_KB=2048
 ```
 
+Variabel backup database:
+
+```env
+BACKUP_DISK=local
+BACKUP_DATABASE_PATH=backups/database
+BACKUP_DATABASE_KEEP_LATEST=14
+BACKUP_DATABASE_MAX_AGE_HOURS=26
+MYSQLDUMP_BINARY=mysqldump
+PG_DUMP_BINARY=pg_dump
+```
+
 Dokumen pendukung dan foto profil baru dilayani lewat route authenticated. Disk `local` mengarah ke `storage/app/private`, sehingga file sensitif tidak perlu berada di public web root.
 
 Audit storage upload secara berkala:
@@ -211,6 +222,49 @@ Log scheduler dashboard:
 ```text
 storage/logs/dashboard-health.log
 storage/logs/dashboard-rebuild.log
+```
+
+## Backup and Restore
+
+Backup manual database:
+
+```bash
+php artisan app:backup-database
+```
+
+Contoh cron backup harian:
+
+```text
+deploy/cron/lansia-papua-database-backup.cron.example
+```
+
+Panduan lengkap backup, restore, dan restore drill:
+
+```text
+docs/backup-restore.md
+```
+
+## Monitoring and Incident Readiness
+
+Status production gabungan:
+
+```bash
+php artisan app:production-status
+php artisan app:production-status --fail-on-warning
+```
+
+Command ini mengecek health dashboard, queue analytics, failed jobs, dan usia backup database terakhir.
+
+Contoh cron monitoring hourly:
+
+```text
+deploy/cron/lansia-papua-production-status.cron.example
+```
+
+Runbook saat incident:
+
+```text
+docs/incident-runbook.md
 ```
 
 ## Deploy Checklist
