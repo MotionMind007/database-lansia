@@ -45,6 +45,7 @@ class SurveyController extends Controller
             // 1. Simpan respondent
             $respondent = Respondent::create([
                 'full_name' => $request->full_name,
+                'nik' => $request->nik ?: null,
                 'gender' => $request->gender,
                 'age' => $request->age,
                 'education' => $request->education,
@@ -214,6 +215,7 @@ class SurveyController extends Controller
             // 1. Update respondent
             $respondent->update([
                 'full_name' => $request->full_name,
+                'nik' => $request->nik ?: $respondent->nik,
                 'gender' => $request->gender,
                 'age' => $request->age,
                 'education' => $request->education,

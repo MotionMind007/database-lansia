@@ -12,7 +12,7 @@ class Respondent extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'full_name', 'gender', 'age', 'education', 'occupation',
+        'full_name', 'nik', 'gender', 'age', 'education', 'occupation',
         'address', 'phone', 'religion', 'ethnicity',
         'citizenship_status', 'household_status', 'region_id', 'photo_path',
     ];

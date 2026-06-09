@@ -83,6 +83,12 @@
                         <input type="text" name="full_name" class="form-input" placeholder="Nama lengkap responden" />
                         @error('full_name')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
                     </div>
+                    <div class="md:col-span-2">
+                        <label class="form-label">NIK (Nomor Induk Kependudukan)</label>
+                        <input type="text" name="nik" class="form-input" placeholder="16 digit NIK (opsional)" maxlength="16" inputmode="numeric" />
+                        <p class="text-[0.65rem] text-gray-400 mt-1">Opsional. Jika diisi, sistem akan mencegah duplikasi data responden.</p>
+                        @error('nik')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
+                    </div>
                     <div>
                         <label class="form-label">Jenis Kelamin <span class="text-red-400">*</span></label>
                         <div class="radio-group mt-1">
