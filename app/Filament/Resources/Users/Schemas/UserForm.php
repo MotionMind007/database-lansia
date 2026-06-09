@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Users\Schemas;
 
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -15,6 +16,18 @@ class UserForm
     {
         return $schema
             ->components([
+                FileUpload::make('avatar_path')
+                    ->label('Foto Profil')
+                    ->image()
+                    ->avatar()
+                    ->disk('public')
+                    ->directory('avatars')
+                    ->maxSize(2048)
+                    ->imageResizeMode('cover')
+                    ->imageCropAspectRatio('1:1')
+                    ->imageResizeTargetWidth('256')
+                    ->imageResizeTargetHeight('256')
+                    ->helperText('Opsional. Maks 2MB, format JPG/PNG.'),
                 TextInput::make('name')
                     ->required(),
                 TextInput::make('email')
