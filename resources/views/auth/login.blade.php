@@ -26,7 +26,7 @@
     <!-- ══════════════════════════════
          LEFT — LOGIN FORM
     ══════════════════════════════ -->
-    <div class="w-[420px] min-w-[420px] bg-[var(--color-navy)] flex flex-col justify-center px-10 py-12 relative overflow-y-auto">
+    <div class="w-full lg:w-[420px] lg:min-w-[420px] bg-[var(--color-navy)] flex flex-col justify-center px-6 sm:px-10 py-12 relative overflow-y-auto">
 
         <!-- Top accent line -->
         <div class="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-sky-500 via-sky-400 to-sky-700"></div>
@@ -137,7 +137,7 @@
     <!-- ══════════════════════════════
          RIGHT — IMAGE PANEL
     ══════════════════════════════ -->
-    <div class="flex-1 relative overflow-hidden">
+    <div class="hidden lg:block flex-1 relative overflow-hidden">
 
         <!-- Background Images -->
         <div class="bg-image active" style="background-image: url('{{ asset('images/bg-papua-1.png') }}')"></div>

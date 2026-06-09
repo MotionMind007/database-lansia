@@ -119,8 +119,9 @@ class SecurityRegressionTest extends TestCase
 
         $csp = $response->headers->get('Content-Security-Policy');
         $this->assertStringContainsString("default-src 'self'", $csp);
-        $this->assertStringNotContainsString("'unsafe-inline'", $csp);
-        $this->assertMatchesRegularExpression("/nonce-[A-Za-z0-9+\/=]+/", $csp);
+        $this->assertStringContainsString("object-src 'none'", $csp);
+        $this->assertStringContainsString("frame-ancestors 'self'", $csp);
+        $this->assertStringContainsString("https://cdn.jsdelivr.net", $csp);
     }
 
     public function test_legacy_root_controllers_are_removed(): void

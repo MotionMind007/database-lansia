@@ -415,7 +415,7 @@
 @endsection
 
 @push('scripts')
-<script>
+<script nonce="{{ Vite::cspNonce() }}">
 document.addEventListener('DOMContentLoaded', function () {
     if (typeof window.initSearchableSelect !== 'function') return;
 
@@ -437,8 +437,8 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 
 @if($chartItems->isNotEmpty())
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<script>
+<script nonce="{{ Vite::cspNonce() }}" src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script nonce="{{ Vite::cspNonce() }}">
 document.addEventListener('DOMContentLoaded', function () {
     const charts = @json($chartItems);
     const palette = ['#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#64748B', '#14B8A6', '#F97316', '#84CC16', '#06B6D4'];
