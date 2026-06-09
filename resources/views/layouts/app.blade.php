@@ -29,7 +29,7 @@
 <!-- Mobile overlay -->
 <div class="fixed inset-0 bg-black/50 z-40 hidden" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
-<div class="flex h-screen overflow-hidden">
+<div class="flex h-screen overflow-x-hidden">
 
     <!-- ═══════════════════════════════
          SIDEBAR
@@ -162,7 +162,7 @@
         </header>
 
         <!-- Page content -->
-        <div class="flex-1 overflow-y-auto p-4 lg:p-6">
+        <div class="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-6 pb-20 lg:pb-6">
             @yield('content')
         </div>
     </main>

@@ -963,7 +963,7 @@
         </div>
 
         <!-- Navigation buttons -->
-        <div class="px-6 pb-6 flex items-center justify-between border-t border-gray-50 pt-5">
+        <div class="px-4 sm:px-6 pb-6 flex flex-wrap items-center justify-between gap-3 border-t border-gray-50 pt-5">
             <button type="button" id="btn-prev" onclick="prevStep()"
                     class="inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-medium px-5 py-2.5 rounded-lg transition-colors cursor-pointer hidden">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
