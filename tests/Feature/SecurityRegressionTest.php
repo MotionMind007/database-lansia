@@ -116,7 +116,11 @@ class SecurityRegressionTest extends TestCase
         $response->assertHeader('X-Frame-Options', 'SAMEORIGIN');
         $response->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
         $response->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-        $this->assertStringContainsString("default-src 'self'", $response->headers->get('Content-Security-Policy'));
+
+        $csp = $response->headers->get('Content-Security-Policy');
+        $this->assertStringContainsString("default-src 'self'", $csp);
+        $this->assertStringNotContainsString("'unsafe-inline'", $csp);
+        $this->assertMatchesRegularExpression("/nonce-[A-Za-z0-9+\/=]+/", $csp);
     }
 
     public function test_legacy_root_controllers_are_removed(): void

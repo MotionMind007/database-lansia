@@ -3,51 +3,97 @@
 namespace App\Http\Controllers\App;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ExportCsvJob;
 use App\Models\SurveyResponse;
+use App\Support\SurveyResponseAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ExportController extends Controller
 {
+    /**
+     * Threshold above which export is dispatched to background queue.
+     * Configurable via EXPORT_ASYNC_THRESHOLD env variable.
+     */
+    private function asyncThreshold(): int
+    {
+        return max(100, (int) config('dashboard.export_async_threshold', 2000));
+    }
+
     public function export(Request $request)
     {
         $format = $request->get('format', 'csv');
+        $user = auth()->user();
 
         $query = SurveyResponse::query()
-            ->with(['respondent', 'surveyor', 'region'])
             ->select('survey_responses.*');
 
         // Role scoping
-        $user = auth()->user();
         if ($user->hasRole('surveyor') && ! $user->hasAnyRole(['administrator', 'super admin', 'super_admin'])) {
             $query->where('surveyor_id', $user->id);
         }
 
         // Filters
+        $filters = [];
         if ($request->filled('status')) {
             $query->where('status', $request->status);
+            $filters['status'] = $request->status;
         }
         if ($request->filled('region_id')) {
             $query->where('region_id', $request->region_id);
+            $filters['region_id'] = $request->region_id;
         }
 
-        if ($format === 'csv') {
-            activity('export')
-                ->causedBy($user)
-                ->event('export_csv')
-                ->withProperties([
-                    'format' => 'csv',
-                    'filters' => $request->only(['status', 'region_id']),
-                    'ip' => $request->ip(),
-                    'user_agent' => substr((string) $request->userAgent(), 0, 255),
-                ])
-                ->log('User export data lansia.');
+        $count = (clone $query)->count();
 
-            return $this->exportCsv($query);
+        activity('export')
+            ->causedBy($user)
+            ->event('export_csv')
+            ->withProperties([
+                'format' => 'csv',
+                'filters' => $filters,
+                'row_count' => $count,
+                'async' => $count > $this->asyncThreshold(),
+                'ip' => $request->ip(),
+                'user_agent' => substr((string) $request->userAgent(), 0, 255),
+            ])
+            ->log('User export data lansia.');
+
+        // Large dataset → dispatch to background job
+        if ($count > $this->asyncThreshold()) {
+            ExportCsvJob::dispatch($user->id, $filters);
+
+            return redirect()->back()
+                ->with('info', "Export {$count} baris sedang diproses di background. Anda akan mendapat notifikasi saat file siap.");
         }
 
-        return $this->exportCsv($query); // default to CSV for now
+        // Small dataset → stream directly
+        $query->with(['respondent', 'surveyor', 'region']);
+
+        return $this->exportCsv($query);
+    }
+
+    /**
+     * Download a previously generated export file.
+     */
+    public function download(Request $request)
+    {
+        $path = $request->query('file');
+        $disk = config('uploads.private_disk', 'local');
+
+        if (! $path || ! str_starts_with($path, 'exports/') || str_contains($path, '..')) {
+            abort(404);
+        }
+
+        if (! Storage::disk($disk)->exists($path)) {
+            abort(404);
+        }
+
+        return Storage::disk($disk)->download($path, basename($path), [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
     private function exportCsv(Builder $query): StreamedResponse

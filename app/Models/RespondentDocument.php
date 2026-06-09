@@ -4,9 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class RespondentDocument extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'respondent_id', 'survey_response_id', 'document_type',
         'file_path', 'file_name', 'mime_type', 'file_size',

@@ -13,6 +13,7 @@ use App\Models\RespondentDocument;
 use App\Models\Survey;
 use App\Models\SurveyAnswer;
 use App\Models\SurveyResponse;
+use App\Support\SearchHelper;
 use App\Support\SecureUploadStorage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -545,6 +546,7 @@ class SurveyController extends Controller
             return response()->json([]);
         }
 
+        $search = SearchHelper::escapeLike($search);
         $likeOperator = DB::getDriverName() === 'pgsql' ? 'ilike' : 'like';
 
         $villages = Region::active()

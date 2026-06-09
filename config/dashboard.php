@@ -16,6 +16,8 @@ return [
 
     'raw_fallback_limit' => env('DASHBOARD_RAW_FALLBACK_LIMIT', 5000),
 
+    'export_async_threshold' => env('EXPORT_ASYNC_THRESHOLD', 2000),
+
     'health' => [
         'max_pending_jobs' => env('DASHBOARD_HEALTH_MAX_PENDING_JOBS', 1000),
         'max_failed_jobs' => env('DASHBOARD_HEALTH_MAX_FAILED_JOBS', 0),

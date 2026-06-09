@@ -1,0 +1,3 @@
+# Hapus file export CSV yang lebih dari 7 hari
+# Jalankan sehari sekali jam 03:00
+0 3 * * * find /var/www/lansia-papua/storage/app/private/exports -name "*.csv" -mtime +7 -delete >> /dev/null 2>&1

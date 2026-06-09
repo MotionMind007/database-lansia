@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Region;
 use App\Models\SurveyResponse;
 use App\Models\User;
+use App\Support\SearchHelper;
 use App\Support\SurveyResponseAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,7 @@ class LansiaController extends Controller
 
         // Filters
         if ($request->filled('search')) {
-            $search = $request->search;
+            $search = SearchHelper::escapeLike($request->search);
             $likeOperator = $this->likeOperator();
 
             $query->where(function ($q) use ($search, $likeOperator) {

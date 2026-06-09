@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Vite;
 use Symfony\Component\HttpFoundation\Response;
 
 class SecurityHeaders
@@ -28,6 +29,8 @@ class SecurityHeaders
 
     private function contentSecurityPolicy(): string
     {
+        $nonce = Vite::cspNonce();
+
         return implode('; ', [
             "default-src 'self'",
             "base-uri 'self'",
@@ -36,8 +39,8 @@ class SecurityHeaders
             "form-action 'self'",
             "img-src 'self' data: blob:",
             "font-src 'self' https://fonts.gstatic.com data:",
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+            "style-src 'self' 'nonce-{$nonce}' https://fonts.googleapis.com",
+            "script-src 'self' 'nonce-{$nonce}' https://cdn.jsdelivr.net",
             "connect-src 'self'",
         ]);
     }

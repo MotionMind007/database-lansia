@@ -3,7 +3,7 @@
 @section('title', 'Lansia Papua — Sistem Database Survey Lansia Provinsi Papua')
 
 @push('styles')
-<style>
+<style nonce="{{ Vite::cspNonce() }}">
     .slideshow { position: fixed; inset: 0; z-index: 0; }
     .slide {
         position: absolute; inset: 0;
@@ -78,18 +78,18 @@
     <!-- Stats -->
     <div class="animate-up delay-4 flex items-center gap-8 mb-10 flex-wrap justify-center">
         <div class="text-center">
-            <div class="text-2xl font-bold text-sky-300">13</div>
-            <div class="text-[0.68rem] text-white/50 uppercase tracking-wider mt-1">Seksi Kuesioner</div>
+            <div class="text-2xl font-bold text-sky-300">{{ number_format($lansia_count) }}</div>
+            <div class="text-[0.68rem] text-white/50 uppercase tracking-wider mt-1">Lansia Terdata</div>
         </div>
         <div class="w-px h-10 bg-white/15"></div>
         <div class="text-center">
-            <div class="text-2xl font-bold text-sky-300">3</div>
-            <div class="text-[0.68rem] text-white/50 uppercase tracking-wider mt-1">Peran Pengguna</div>
+            <div class="text-2xl font-bold text-sky-300">{{ number_format($village_count) }}</div>
+            <div class="text-[0.68rem] text-white/50 uppercase tracking-wider mt-1">Kampung Tercakup</div>
         </div>
         <div class="w-px h-10 bg-white/15"></div>
         <div class="text-center">
-            <div class="text-2xl font-bold text-sky-300">46+</div>
-            <div class="text-[0.68rem] text-white/50 uppercase tracking-wider mt-1">Item Pendataan</div>
+            <div class="text-2xl font-bold text-sky-300">{{ $surveyor_count }}</div>
+            <div class="text-[0.68rem] text-white/50 uppercase tracking-wider mt-1">Surveyor Aktif</div>
         </div>
     </div>
 
@@ -117,7 +117,7 @@
 @endsection
 
 @push('scripts')
-<script>
+<script nonce="{{ Vite::cspNonce() }}">
     const slides = document.querySelectorAll('.slide');
     const indicators = document.querySelectorAll('.indicator');
     let current = 0;

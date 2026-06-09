@@ -9,6 +9,7 @@ use App\Models\RespondentDocument;
 use App\Models\SurveyResponse;
 use App\Models\User;
 use App\Support\DashboardBenchmark;
+use App\Support\DashboardCache;
 use App\Support\DashboardFactBuilder;
 use App\Support\DashboardHealthCheck;
 use App\Support\SecureUploadStorage;
@@ -432,3 +433,47 @@ Artisan::command('uploads:prune-orphans {--delete : Delete orphan files instead 
 
     return $missingFiles ? 1 : 0;
 })->purpose('Audit and optionally delete unreferenced private upload files');
+
+Artisan::command('dashboard:warm-cache', function () {
+    $admin = User::role('administrator')->where('is_active', true)->first();
+
+    if (! $admin) {
+        $this->warn('No active administrator found for cache warm-up.');
+
+        return 0;
+    }
+
+    $startedAt = microtime(true);
+
+    // Build dashboard payload for admin unfiltered — this populates the cache
+    $controller = new \App\Http\Controllers\App\DashboardController();
+    $user = $admin;
+    $filters = ['cityId' => null, 'districtId' => null, 'villageId' => null, 'gender' => null, 'category' => null];
+
+    DashboardCache::warmUp($user, $filters, function () use ($user): array {
+        $baseQuery = SurveyResponse::query();
+        \App\Support\SurveyResponseAccess::applyVisibleScope($baseQuery, $user);
+
+        $stats = [
+            'total' => (clone $baseQuery)->count(),
+            'this_month' => (clone $baseQuery)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->count(),
+            'verified' => (clone $baseQuery)->where('status', SurveyResponse::STATUS_VERIFIED)->count(),
+            'need_revision' => (clone $baseQuery)->where('status', SurveyResponse::STATUS_NEED_REVISION)->count(),
+            'submitted' => (clone $baseQuery)->where('status', SurveyResponse::STATUS_SUBMITTED)->count(),
+            'draft' => (clone $baseQuery)->where('status', SurveyResponse::STATUS_DRAFT)->count(),
+            'rejected' => (clone $baseQuery)->where('status', SurveyResponse::STATUS_REJECTED)->count(),
+        ];
+
+        $factReader = app(\App\Support\DashboardFactReader::class);
+        if ($factReader->hasFacts()) {
+            return $factReader->build($user, null, null, null, null, null, $stats);
+        }
+
+        return ['stats' => $stats, 'questionAnalytics' => [], 'dashboardSummary' => ['response_count' => $stats['total'], 'questions_total' => 0, 'questions_with_data' => 0, 'completion_pct' => 0], 'categoryOptions' => collect(), 'category' => null];
+    });
+
+    $duration = round(microtime(true) - $startedAt, 2);
+    $this->info("Dashboard cache warmed for administrator (unfiltered) in {$duration}s.");
+
+    return 0;
+})->purpose('Pre-warm the dashboard analytics cache for the unfiltered administrator view');

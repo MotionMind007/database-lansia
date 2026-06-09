@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Middleware\LoginThrottle;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,16 +16,17 @@ class LoginController extends Controller
         if (Auth::check()) {
             return redirect()->route('app.dashboard');
         }
+
         return view('auth.login');
     }
 
     public function login(Request $request)
     {
         $request->validate([
-            'email'    => ['required', 'string'],
+            'email' => ['required', 'string'],
             'password' => ['required', 'string'],
         ], [
-            'email.required'    => 'Email atau username wajib diisi.',
+            'email.required' => 'Email atau username wajib diisi.',
             'password.required' => 'Password wajib diisi.',
         ]);
 
@@ -38,6 +40,8 @@ class LoginController extends Controller
         $user = User::where($field, $request->email)->first();
 
         if (! $user) {
+            LoginThrottle::recordFailedAttempt($request);
+
             activity('auth')
                 ->event('login_failed')
                 ->withProperties($this->requestContext($request, [
@@ -65,6 +69,8 @@ class LoginController extends Controller
         }
 
         if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+            LoginThrottle::recordFailedAttempt($request);
+
             activity('auth')
                 ->causedBy($user)
                 ->performedOn($user)
@@ -76,6 +82,9 @@ class LoginController extends Controller
                 'email' => 'Email atau password tidak valid.',
             ]);
         }
+
+        // Clear lockout on success
+        LoginThrottle::clearAttempts($request);
 
         // Update last login
         $user->update(['last_login_at' => now()]);
@@ -89,7 +98,6 @@ class LoginController extends Controller
             ->withProperties($this->requestContext($request))
             ->log('User berhasil login.');
 
-        // Redirect berdasarkan role
         return redirect()->route('app.dashboard');
     }
 
@@ -109,6 +117,7 @@ class LoginController extends Controller
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
         return redirect()->route('home');
     }
 

@@ -2,8 +2,9 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Vite;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,5 +24,8 @@ class AppServiceProvider extends ServiceProvider
         if ($this->app->environment('production') && (bool) config('app.force_https')) {
             URL::forceScheme('https');
         }
+
+        // CSP nonce for Vite-injected scripts/styles
+        Vite::useCspNonce();
     }
 }

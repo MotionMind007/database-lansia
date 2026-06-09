@@ -105,6 +105,17 @@ return [
             'processors' => [PsrLogMessageProcessor::class],
         ],
 
+        'stdout_json' => [
+            'driver' => 'monolog',
+            'level' => env('LOG_LEVEL', 'warning'),
+            'handler' => StreamHandler::class,
+            'handler_with' => [
+                'stream' => 'php://stdout',
+            ],
+            'formatter' => \Monolog\Formatter\JsonFormatter::class,
+            'processors' => [PsrLogMessageProcessor::class],
+        ],
+
         'syslog' => [
             'driver' => 'syslog',
             'level' => env('LOG_LEVEL', 'debug'),
@@ -125,6 +136,10 @@ return [
 
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
+        ],
+
+        'sentry' => [
+            'driver' => 'sentry',
         ],
 
     ],

@@ -27,8 +27,9 @@ class UserForm
                     ->revealable()
                     ->required(fn (string $operation): bool => $operation === 'create')
                     ->dehydrated(fn (?string $state): bool => filled($state))
+                    ->minLength(12)
                     ->maxLength(255)
-                    ->helperText('Kosongkan saat edit jika password tidak ingin diubah.'),
+                    ->helperText('Minimal 12 karakter. Kosongkan saat edit jika password tidak ingin diubah.'),
                 TextInput::make('username')
                     ->maxLength(255),
                 CheckboxList::make('roles')

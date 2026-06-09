@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\App;
 
 use App\Http\Controllers\Controller;
+use App\Support\SearchHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -30,7 +31,7 @@ class ActivityLogController extends Controller
         }
 
         if ($request->filled('search')) {
-            $search = $request->search;
+            $search = SearchHelper::escapeLike($request->search);
 
             $query->where(function ($q) use ($search): void {
                 $q->where('activity_log.description', 'like', "%{$search}%")

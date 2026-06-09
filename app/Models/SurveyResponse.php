@@ -5,9 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class SurveyResponse extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'survey_id', 'respondent_id', 'questionnaire_number',
         'surveyor_id', 'region_id', 'interview_date',

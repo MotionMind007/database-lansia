@@ -8,18 +8,39 @@ use App\Http\Controllers\App\LansiaController;
 use App\Http\Controllers\App\SurveyController;
 use App\Http\Controllers\App\VerificationController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\HealthController;
 use App\Http\Middleware\CheckRole;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
+
+// Health check (for load balancers / uptime monitors)
+Route::get('/health', HealthController::class)->name('health');
 
 // Welcome page (publik)
 Route::get('/', function () {
-    return view('welcome');
+    $stats = Cache::remember('welcome.stats', now()->addMinutes(15), function () {
+        try {
+            return [
+                'lansia_count' => \App\Models\SurveyResponse::where('status', 'verified')->count(),
+                'village_count' => \App\Models\SurveyResponse::distinct('region_id')->count('region_id'),
+                'surveyor_count' => \App\Models\User::role('surveyor')->where('is_active', true)->count(),
+            ];
+        } catch (\Throwable) {
+            return [
+                'lansia_count' => 0,
+                'village_count' => 0,
+                'surveyor_count' => 0,
+            ];
+        }
+    });
+
+    return view('welcome', $stats);
 })->name('home');
 
 // Auth routes (hanya untuk guest)
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLogin'])->name('login');
-    Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:5,1');
+    Route::post('/login', [LoginController::class, 'login'])->middleware(['throttle:5,1', \App\Http\Middleware\LoginThrottle::class]);
 });
 
 // Logout
@@ -32,8 +53,10 @@ Route::post('/logout', [LoginController::class, 'logout'])
 // ═══════════════════════════════════════
 Route::middleware(['auth', 'throttle:120,1'])->prefix('app')->name('app.')->group(function () {
 
-    // Dashboard (semua role)
-    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+    // Dashboard (semua role) — rate limited lebih ketat karena heavy query
+    Route::get('/', [DashboardController::class, 'index'])
+        ->middleware('throttle:30,1')
+        ->name('dashboard');
 
     // Data Lansia (semua role — scoping per role di controller)
     Route::get('/lansia', [LansiaController::class, 'index'])->name('lansia.index');
@@ -62,6 +85,10 @@ Route::middleware(['auth', 'throttle:120,1'])->prefix('app')->name('app.')->grou
     Route::get('/export', [ExportController::class, 'export'])
         ->middleware([CheckRole::class . ':administrator,surveyor', 'throttle:10,1'])
         ->name('export');
+
+    Route::get('/export/download', [ExportController::class, 'download'])
+        ->middleware(CheckRole::class . ':administrator,surveyor')
+        ->name('export.download');
 
     // Admin tools
     Route::get('/activity-logs', [ActivityLogController::class, 'index'])

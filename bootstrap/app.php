@@ -19,6 +19,11 @@ return Application::configure(basePath: dirname(__DIR__))
             ->withoutOverlapping()
             ->appendOutputTo(storage_path('logs/dashboard-health.log'));
 
+        $schedule->command('dashboard:warm-cache')
+            ->everyFifteenMinutes()
+            ->withoutOverlapping()
+            ->runInBackground();
+
         if (config('dashboard.scheduled_rebuild.enabled')) {
             $schedule->command('dashboard:rebuild-facts --chunk='.config('dashboard.scheduled_rebuild.chunk'))
                 ->dailyAt(config('dashboard.scheduled_rebuild.time'))
