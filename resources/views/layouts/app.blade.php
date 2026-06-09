@@ -10,19 +10,31 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <style>
+        @media (max-width: 1023px) {
+            #sidebar { transform: translateX(-100%); position: fixed; inset: 0; z-index: 50; width: 260px; }
+            #sidebar.open { transform: translateX(0); }
+            #sidebar-overlay.open { display: block; }
+        }
+        @media (min-width: 1024px) {
+            #sidebar { transform: none; position: relative; z-index: auto; flex-shrink: 0; }
+            #sidebar-overlay { display: none !important; }
+            .hamburger-btn { display: none; }
+        }
+    </style>
     @stack('styles')
 </head>
 <body class="antialiased bg-gray-50 font-sans text-gray-800">
 
 <!-- Mobile overlay -->
-<div class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+<div class="fixed inset-0 bg-black/50 z-40 hidden" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
 <div class="flex h-screen overflow-hidden">
 
     <!-- ═══════════════════════════════
          SIDEBAR
     ═══════════════════════════════ -->
-    <aside class="fixed inset-y-0 left-0 z-50 w-[260px] bg-[#0F1A2E] flex flex-col overflow-y-auto transform -translate-x-full lg:translate-x-0 lg:static lg:z-auto transition-transform duration-200 ease-in-out" id="sidebar">
+    <aside class="w-[260px] bg-[#0F1A2E] flex flex-col overflow-y-auto transition-transform duration-200 ease-in-out" id="sidebar">
 
         <!-- Logo area -->
         <div class="px-5 py-5 flex items-center justify-between border-b border-white/10">
@@ -131,13 +143,13 @@
     <!-- ═══════════════════════════════
          MAIN CONTENT AREA
     ═══════════════════════════════ -->
-    <main class="flex-1 flex flex-col overflow-hidden w-full">
+    <main class="flex-1 flex flex-col overflow-hidden">
 
         <!-- Top bar -->
         <header class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-6 shrink-0">
             <div class="flex items-center gap-3">
                 <!-- Hamburger (mobile only) -->
-                <button class="lg:hidden text-gray-600 hover:text-gray-900 p-1 -ml-1" onclick="toggleSidebar()">
+                <button class="hamburger-btn text-gray-600 hover:text-gray-900 p-1 -ml-1" onclick="toggleSidebar()">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
                     </svg>
@@ -159,17 +171,8 @@
 
 <script>
     function toggleSidebar() {
-        const sidebar = document.getElementById('sidebar');
-        const overlay = document.getElementById('sidebar-overlay');
-        const isOpen = !sidebar.classList.contains('-translate-x-full');
-
-        if (isOpen) {
-            sidebar.classList.add('-translate-x-full');
-            overlay.classList.add('hidden');
-        } else {
-            sidebar.classList.remove('-translate-x-full');
-            overlay.classList.remove('hidden');
-        }
+        document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('sidebar-overlay').classList.toggle('open');
     }
 </script>
 @stack('scripts')

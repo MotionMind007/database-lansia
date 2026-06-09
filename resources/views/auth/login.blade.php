@@ -17,6 +17,12 @@
     .d3 { animation-delay: 0.3s; }
     .d4 { animation-delay: 0.4s; }
     .d5 { animation-delay: 0.5s; }
+    .login-panel { width: 100%; }
+    .image-panel { display: none; }
+    @media (min-width: 768px) {
+        .login-panel { width: 420px; min-width: 420px; }
+        .image-panel { display: block; flex: 1; }
+    }
 </style>
 @endpush
 
@@ -26,7 +32,7 @@
     <!-- ══════════════════════════════
          LEFT — LOGIN FORM
     ══════════════════════════════ -->
-    <div class="w-full lg:w-[420px] lg:min-w-[420px] bg-[var(--color-navy)] flex flex-col justify-center px-6 sm:px-10 py-12 relative overflow-y-auto">
+    <div class="login-panel bg-[#0F1A2E] flex flex-col justify-center px-6 sm:px-10 py-12 relative overflow-y-auto">
 
         <!-- Top accent line -->
         <div class="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-sky-500 via-sky-400 to-sky-700"></div>
@@ -137,7 +143,7 @@
     <!-- ══════════════════════════════
          RIGHT — IMAGE PANEL
     ══════════════════════════════ -->
-    <div class="hidden lg:block flex-1 relative overflow-hidden">
+    <div class="image-panel relative overflow-hidden">
 
         <!-- Background Images -->
         <div class="bg-image active" style="background-image: url('{{ asset('images/bg-papua-1.png') }}')"></div>
