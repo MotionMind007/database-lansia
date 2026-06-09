@@ -971,22 +971,22 @@
             </button>
             <div></div>
 
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                 <button type="button" id="btn-draft"
                         onclick="document.getElementById('action-input').value='draft'; document.querySelector('form').submit();"
-                        class="inline-flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 text-xs font-medium px-5 py-2.5 rounded-lg transition-colors cursor-pointer">
+                        class="inline-flex items-center gap-1.5 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 text-xs font-medium px-3 sm:px-5 py-2.5 rounded-lg transition-colors cursor-pointer">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
-                    Simpan Draft
+                    <span class="hidden sm:inline">Simpan</span> Draft
                 </button>
                 <button type="button" id="btn-next" onclick="nextStep()"
-                        class="inline-flex items-center gap-2 bg-sky-500 hover:bg-sky-600 text-white text-xs font-semibold px-6 py-2.5 rounded-lg shadow-sm transition-colors cursor-pointer">
+                        class="inline-flex items-center gap-1.5 bg-sky-500 hover:bg-sky-600 text-white text-xs font-semibold px-4 sm:px-6 py-2.5 rounded-lg shadow-sm transition-colors cursor-pointer">
                     Selanjutnya
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                 </button>
                 <button type="submit" id="btn-submit"
-                        class="hidden inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold px-6 py-2.5 rounded-lg shadow-sm transition-colors cursor-pointer">
+                        class="hidden inline-flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold px-4 sm:px-6 py-2.5 rounded-lg shadow-sm transition-colors cursor-pointer">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                    Submit Revisi
+                    Submit
                 </button>
             </div>
         </div>

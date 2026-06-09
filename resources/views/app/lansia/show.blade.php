@@ -125,8 +125,8 @@
 
     <!-- Tabs -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div class="border-b border-gray-100">
-            <div class="flex px-5">
+        <div class="border-b border-gray-100 overflow-x-auto">
+            <div class="flex px-5 min-w-max">
                 <button class="tab-btn active" onclick="switchTab('data-pribadi', this)">Data Pribadi</button>
                 <button class="tab-btn" onclick="switchTab('data-parameter', this)">Data Parameter</button>
                 <button class="tab-btn" onclick="switchTab('dokumen', this)">Dokumen</button>
@@ -134,7 +134,7 @@
             </div>
         </div>
 
-        <div class="p-6">
+        <div class="p-4 sm:p-6">
 
             {{-- TAB 1: DATA PRIBADI --}}
             <div id="tab-data-pribadi" class="tab-panel active">
