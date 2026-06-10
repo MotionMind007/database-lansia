@@ -38,7 +38,7 @@ class SecurityHeaders
             "font-src 'self' https://fonts.gstatic.com data:",
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
-            "connect-src 'self'",
+            "connect-src 'self' https://cdn.jsdelivr.net",
         ]);
     }
 }
