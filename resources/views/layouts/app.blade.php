@@ -119,8 +119,12 @@
         <div class="px-3 pb-4 border-t border-white/10 pt-5">
             <div class="px-3 pb-4 mb-3 border-b border-white/10">
                 <div class="flex items-center gap-3">
-                    @if(auth()->user()->avatar_path)
-                        <img src="{{ asset('storage/' . auth()->user()->avatar_path) }}" alt="Avatar" class="w-9 h-9 rounded-full object-cover shrink-0" />
+                    @php
+                        $avatarPath = auth()->user()->avatar_path;
+                        if (is_array($avatarPath)) $avatarPath = $avatarPath[0] ?? null;
+                    @endphp
+                    @if($avatarPath)
+                        <img src="{{ asset('storage/' . $avatarPath) }}" alt="Avatar" class="w-9 h-9 rounded-full object-cover shrink-0" />
                     @else
                         <div class="w-9 h-9 rounded-full bg-sky-500/20 flex items-center justify-center text-sky-400 text-xs font-bold shrink-0">
                             {{ strtoupper(substr(auth()->user()->name, 0, 2)) }}
