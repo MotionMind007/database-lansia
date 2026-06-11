@@ -85,10 +85,20 @@ class ExportController extends Controller
         }
 
         $path = $request->query('file');
+        $ownerId = (int) $request->query('user');
         $disk = config('uploads.private_disk', 'local');
 
         if (! $path || ! str_starts_with($path, 'exports/') || str_contains($path, '..')) {
             abort(404);
+        }
+
+        if ($ownerId <= 0 || ! str_starts_with($path, "exports/data_lansia_{$ownerId}_")) {
+            abort(403, 'Link download tidak sesuai dengan pemilik file.');
+        }
+
+        $user = $request->user();
+        if (! $user->hasAnyRole(['administrator', 'super admin', 'super_admin']) && $user->id !== $ownerId) {
+            abort(403, 'Anda tidak memiliki akses ke file ini.');
         }
 
         if (! Storage::disk($disk)->exists($path)) {

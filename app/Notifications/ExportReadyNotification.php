@@ -22,16 +22,18 @@ class ExportReadyNotification extends Notification
 
     public function toArray(object $notifiable): array
     {
-        // Signed URL expires in 24 hours — cannot be shared/guessed
-        $downloadUrl = URL::signedRoute('app.export.download', [
+        // Bind the signed URL to the recipient so a forwarded link is rejected.
+        $expiresAt = now()->addHours(24);
+        $downloadUrl = URL::temporarySignedRoute('app.export.download', $expiresAt, [
             'file' => $this->filePath,
-        ], now()->addHours(24));
+            'user' => $notifiable->getKey(),
+        ]);
 
         return [
             'message' => "Export CSV selesai ({$this->rowCount} baris).",
             'download_url' => $downloadUrl,
             'row_count' => $this->rowCount,
-            'expires_at' => now()->addHours(24)->toIso8601String(),
+            'expires_at' => $expiresAt->toIso8601String(),
             'generated_at' => now()->toIso8601String(),
         ];
     }
