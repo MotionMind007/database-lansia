@@ -87,7 +87,6 @@ Route::middleware(['auth', 'throttle:120,1'])->prefix('app')->name('app.')->grou
         ->name('export');
 
     Route::get('/export/download', [ExportController::class, 'download'])
-        ->middleware(CheckRole::class . ':administrator,surveyor')
         ->name('export.download');
 
     // Admin tools
