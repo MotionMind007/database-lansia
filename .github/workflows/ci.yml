@@ -20,7 +20,7 @@ jobs:
           coverage: none
 
       - name: Audit Composer dependencies
-        run: composer audit --no-interaction
+        run: composer audit --locked --no-interaction
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
