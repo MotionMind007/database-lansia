@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('region_id')->constrained('regions')->restrictOnDelete();
             $table->date('interview_date');
             $table->enum('status', [
-                'draft', 'submitted', 'need_revision', 'verified', 'rejected'
+                'draft', 'submitted', 'need_revision', 'verified', 'rejected',
             ])->default('draft');
             $table->text('surveyor_notes')->nullable();
             $table->timestamp('submitted_at')->nullable();

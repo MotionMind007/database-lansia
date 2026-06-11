@@ -9,7 +9,7 @@ COPY resources/ ./resources/
 RUN npm run build
 
 # Stage 2: shared PHP runtime with required extensions
-FROM php:8.3-fpm-alpine AS php-base
+FROM php:8.4-fpm-alpine AS php-base
 
 RUN apk add --no-cache \
     postgresql-dev \

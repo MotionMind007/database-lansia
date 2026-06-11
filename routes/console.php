@@ -1,9 +1,6 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Storage;
+use App\Http\Controllers\App\DashboardController;
 use App\Models\ExportFile;
 use App\Models\Respondent;
 use App\Models\RespondentDocument;
@@ -12,8 +9,14 @@ use App\Models\User;
 use App\Support\DashboardBenchmark;
 use App\Support\DashboardCache;
 use App\Support\DashboardFactBuilder;
+use App\Support\DashboardFactReader;
 use App\Support\DashboardHealthCheck;
 use App\Support\SecureUploadStorage;
+use App\Support\SurveyResponseAccess;
+use Illuminate\Foundation\Inspiring;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
 
 Artisan::command('inspire', function () {
@@ -292,7 +295,7 @@ Artisan::command('app:production-status {--fail-on-warning}', function (Dashboar
         } else {
             $backupDetail = "backup disk [{$backupDisk}] does not expose local paths";
         }
-    } catch (\Throwable $e) {
+    } catch (Throwable $e) {
         $backupDetail = 'backup check failed: '.$e->getMessage();
     }
 
@@ -497,13 +500,13 @@ Artisan::command('dashboard:warm-cache', function () {
     $startedAt = microtime(true);
 
     // Build dashboard payload for admin unfiltered — this populates the cache
-    $controller = new \App\Http\Controllers\App\DashboardController();
+    $controller = new DashboardController;
     $user = $admin;
     $filters = ['cityId' => null, 'districtId' => null, 'villageId' => null, 'gender' => null, 'category' => null];
 
     DashboardCache::warmUp($user, $filters, function () use ($user): array {
         $baseQuery = SurveyResponse::query();
-        \App\Support\SurveyResponseAccess::applyVisibleScope($baseQuery, $user);
+        SurveyResponseAccess::applyVisibleScope($baseQuery, $user);
 
         $stats = [
             'total' => (clone $baseQuery)->count(),
@@ -515,7 +518,7 @@ Artisan::command('dashboard:warm-cache', function () {
             'rejected' => (clone $baseQuery)->where('status', SurveyResponse::STATUS_REJECTED)->count(),
         ];
 
-        $factReader = app(\App\Support\DashboardFactReader::class);
+        $factReader = app(DashboardFactReader::class);
         if ($factReader->hasFacts()) {
             return $factReader->build($user, null, null, null, null, null, $stats);
         }

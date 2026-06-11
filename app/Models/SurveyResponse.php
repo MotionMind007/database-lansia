@@ -20,36 +20,40 @@ class SurveyResponse extends Model
 
     protected $casts = [
         'interview_date' => 'date',
-        'submitted_at'   => 'datetime',
-        'verified_at'    => 'datetime',
+        'submitted_at' => 'datetime',
+        'verified_at' => 'datetime',
     ];
 
     // Status constants
-    const STATUS_DRAFT         = 'draft';
-    const STATUS_SUBMITTED     = 'submitted';
+    const STATUS_DRAFT = 'draft';
+
+    const STATUS_SUBMITTED = 'submitted';
+
     const STATUS_NEED_REVISION = 'need_revision';
-    const STATUS_VERIFIED      = 'verified';
-    const STATUS_REJECTED      = 'rejected';
+
+    const STATUS_VERIFIED = 'verified';
+
+    const STATUS_REJECTED = 'rejected';
 
     public static function statusLabels(): array
     {
         return [
-            self::STATUS_DRAFT         => 'Draft',
-            self::STATUS_SUBMITTED     => 'Submitted',
+            self::STATUS_DRAFT => 'Draft',
+            self::STATUS_SUBMITTED => 'Submitted',
             self::STATUS_NEED_REVISION => 'Perlu Revisi',
-            self::STATUS_VERIFIED      => 'Verified',
-            self::STATUS_REJECTED      => 'Ditolak',
+            self::STATUS_VERIFIED => 'Verified',
+            self::STATUS_REJECTED => 'Ditolak',
         ];
     }
 
     public static function statusColors(): array
     {
         return [
-            self::STATUS_DRAFT         => 'gray',
-            self::STATUS_SUBMITTED     => 'yellow',
+            self::STATUS_DRAFT => 'gray',
+            self::STATUS_SUBMITTED => 'yellow',
             self::STATUS_NEED_REVISION => 'orange',
-            self::STATUS_VERIFIED      => 'green',
-            self::STATUS_REJECTED      => 'red',
+            self::STATUS_VERIFIED => 'green',
+            self::STATUS_REJECTED => 'red',
         ];
     }
 

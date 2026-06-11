@@ -20,7 +20,7 @@ class LoginThrottleTest extends TestCase
     public function test_allows_request_when_not_locked_out(): void
     {
         $request = $this->makeLoginRequest();
-        $middleware = new LoginThrottle();
+        $middleware = new LoginThrottle;
 
         $response = $middleware->handle($request, fn () => response('ok'));
 
@@ -44,7 +44,7 @@ class LoginThrottleTest extends TestCase
             LoginThrottle::recordFailedAttempt($request);
         }
 
-        $middleware = new LoginThrottle();
+        $middleware = new LoginThrottle;
         $response = $middleware->handle($request, fn () => response('ok'));
 
         $this->assertSame(302, $response->getStatusCode());
@@ -60,7 +60,7 @@ class LoginThrottleTest extends TestCase
 
         LoginThrottle::clearAttempts($request);
 
-        $middleware = new LoginThrottle();
+        $middleware = new LoginThrottle;
         $response = $middleware->handle($request, fn () => response('ok'));
 
         $this->assertSame(200, $response->getStatusCode());

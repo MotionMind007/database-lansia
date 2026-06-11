@@ -4,7 +4,6 @@ namespace Tests\Unit;
 
 use App\Models\User;
 use App\Support\DashboardCache;
-use Illuminate\Support\Facades\Cache;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 

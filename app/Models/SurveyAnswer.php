@@ -13,7 +13,7 @@ class SurveyAnswer extends Model
     ];
 
     protected $casts = [
-        'answer_json'   => 'array',
+        'answer_json' => 'array',
         'answer_number' => 'decimal:2',
     ];
 

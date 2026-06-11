@@ -16,32 +16,32 @@ class SurveyQuestion extends Model
     ];
 
     protected $casts = [
-        'is_required'       => 'boolean',
-        'allow_multiple'    => 'boolean',
+        'is_required' => 'boolean',
+        'allow_multiple' => 'boolean',
         'dashboard_enabled' => 'boolean',
-        'is_active'         => 'boolean',
-        'options'           => 'array',
+        'is_active' => 'boolean',
+        'options' => 'array',
     ];
 
     public static array $types = [
-        'text'           => 'Teks Singkat',
-        'long_text'      => 'Teks Panjang',
-        'number'         => 'Angka',
-        'money'          => 'Uang (Rp)',
-        'date'           => 'Tanggal',
-        'single_choice'  => 'Pilihan Tunggal',
-        'multiple_choice'=> 'Pilihan Ganda',
-        'matrix'         => 'Matrix/Tabel',
+        'text' => 'Teks Singkat',
+        'long_text' => 'Teks Panjang',
+        'number' => 'Angka',
+        'money' => 'Uang (Rp)',
+        'date' => 'Tanggal',
+        'single_choice' => 'Pilihan Tunggal',
+        'multiple_choice' => 'Pilihan Ganda',
+        'matrix' => 'Matrix/Tabel',
         'table_repeater' => 'Tabel Repeater',
-        'file_upload'    => 'Upload File',
+        'file_upload' => 'Upload File',
     ];
 
     public static array $chartTypes = [
-        'bar'          => 'Bar Chart',
-        'pie'          => 'Pie Chart',
-        'line'         => 'Line Chart',
-        'number_card'  => 'Number Card',
-        'table'        => 'Tabel',
+        'bar' => 'Bar Chart',
+        'pie' => 'Pie Chart',
+        'line' => 'Line Chart',
+        'number_card' => 'Number Card',
+        'table' => 'Tabel',
         'matrix_table' => 'Matrix Tabel',
     ];
 

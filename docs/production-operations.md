@@ -448,7 +448,7 @@ cd deploy/docker
 docker compose -f docker-compose.production.yml up -d
 ```
 
-Stack: Nginx + PHP-FPM 8.3 + PostgreSQL 16 + Redis 7. OPcache JIT aktif. Separate containers untuk queue analytics, default/exports, dan scheduler.
+Stack: Nginx + PHP-FPM 8.4 + PostgreSQL 16 + Redis 7. OPcache JIT aktif. Separate containers untuk queue analytics, default/exports, dan scheduler.
 
 ## Zero-Downtime Deploy
 

@@ -1,15 +1,18 @@
 <?php
 
+use App\Http\Controllers\App\ActivityLogController;
 use App\Http\Controllers\App\DashboardController;
 use App\Http\Controllers\App\DocumentController;
 use App\Http\Controllers\App\ExportController;
-use App\Http\Controllers\App\ActivityLogController;
 use App\Http\Controllers\App\LansiaController;
 use App\Http\Controllers\App\SurveyController;
 use App\Http\Controllers\App\VerificationController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\HealthController;
 use App\Http\Middleware\CheckRole;
+use App\Http\Middleware\LoginThrottle;
+use App\Models\SurveyResponse;
+use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 
@@ -21,11 +24,11 @@ Route::get('/', function () {
     $stats = Cache::remember('welcome.stats', now()->addMinutes(15), function () {
         try {
             return [
-                'lansia_count' => \App\Models\SurveyResponse::where('status', 'verified')->count(),
-                'village_count' => \App\Models\SurveyResponse::distinct('region_id')->count('region_id'),
-                'surveyor_count' => \App\Models\User::role('surveyor')->where('is_active', true)->count(),
+                'lansia_count' => SurveyResponse::where('status', 'verified')->count(),
+                'village_count' => SurveyResponse::distinct('region_id')->count('region_id'),
+                'surveyor_count' => User::role('surveyor')->where('is_active', true)->count(),
             ];
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return [
                 'lansia_count' => 0,
                 'village_count' => 0,
@@ -40,7 +43,7 @@ Route::get('/', function () {
 // Auth routes (hanya untuk guest)
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLogin'])->name('login');
-    Route::post('/login', [LoginController::class, 'login'])->middleware(['throttle:5,1', \App\Http\Middleware\LoginThrottle::class]);
+    Route::post('/login', [LoginController::class, 'login'])->middleware(['throttle:5,1', LoginThrottle::class]);
 });
 
 // Logout
@@ -63,7 +66,7 @@ Route::middleware(['auth', 'throttle:120,1'])->prefix('app')->name('app.')->grou
     Route::get('/lansia/{id}', [LansiaController::class, 'show'])->name('lansia.show');
 
     // Input Survey (Administrator + Surveyor only)
-    Route::middleware(CheckRole::class . ':administrator,surveyor')->group(function () {
+    Route::middleware(CheckRole::class.':administrator,surveyor')->group(function () {
         Route::get('/survey/create', [SurveyController::class, 'create'])->name('survey.create');
         Route::post('/survey', [SurveyController::class, 'store'])->name('survey.store');
         Route::get('/survey/{id}/edit', [SurveyController::class, 'edit'])->name('survey.edit');
@@ -71,7 +74,7 @@ Route::middleware(['auth', 'throttle:120,1'])->prefix('app')->name('app.')->grou
     });
 
     // Verifikasi (Administrator + Verifikator only)
-    Route::middleware(CheckRole::class . ':administrator,verifikator')->prefix('verification')->name('verification.')->group(function () {
+    Route::middleware(CheckRole::class.':administrator,verifikator')->prefix('verification')->name('verification.')->group(function () {
         Route::get('/', [VerificationController::class, 'index'])->name('index');
         Route::get('/{id}', [VerificationController::class, 'show'])->name('show');
         Route::post('/{id}/verify', [VerificationController::class, 'verify'])->name('verify');
@@ -83,7 +86,7 @@ Route::middleware(['auth', 'throttle:120,1'])->prefix('app')->name('app.')->grou
 
     // Export (Administrator + Surveyor)
     Route::get('/export', [ExportController::class, 'export'])
-        ->middleware([CheckRole::class . ':administrator,surveyor', 'throttle:10,1'])
+        ->middleware([CheckRole::class.':administrator,surveyor', 'throttle:10,1'])
         ->name('export');
 
     Route::get('/export/download', [ExportController::class, 'download'])
@@ -91,7 +94,7 @@ Route::middleware(['auth', 'throttle:120,1'])->prefix('app')->name('app.')->grou
 
     // Admin tools
     Route::get('/activity-logs', [ActivityLogController::class, 'index'])
-        ->middleware(CheckRole::class . ':administrator,super admin,super_admin')
+        ->middleware(CheckRole::class.':administrator,super admin,super_admin')
         ->name('activity-logs.index');
 
     // AJAX: Wilayah cascade

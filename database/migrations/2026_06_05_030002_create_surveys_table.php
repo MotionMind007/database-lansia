@@ -37,7 +37,7 @@ return new class extends Migration
             $table->text('question_text');
             $table->enum('question_type', [
                 'text', 'long_text', 'number', 'money', 'date',
-                'single_choice', 'multiple_choice', 'matrix', 'table_repeater', 'file_upload'
+                'single_choice', 'multiple_choice', 'matrix', 'table_repeater', 'file_upload',
             ]);
             $table->boolean('is_required')->default(false);
             $table->boolean('allow_multiple')->default(false);

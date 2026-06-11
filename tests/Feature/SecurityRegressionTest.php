@@ -58,7 +58,7 @@ class SecurityRegressionTest extends TestCase
         $request = Request::create('/app/export', 'GET');
         $request->setUserResolver(fn (): User => $this->userWithRoles(['administrator', 'surveyor']));
 
-        $response = (new CheckRole())->handle(
+        $response = (new CheckRole)->handle(
             $request,
             fn () => response('ok'),
             'surveyor'
@@ -69,7 +69,7 @@ class SecurityRegressionTest extends TestCase
 
     public function test_survey_response_audit_fields_are_not_mass_assignable(): void
     {
-        $response = new SurveyResponse();
+        $response = new SurveyResponse;
 
         $response->fill([
             'status' => SurveyResponse::STATUS_VERIFIED,
@@ -121,7 +121,7 @@ class SecurityRegressionTest extends TestCase
         $this->assertStringContainsString("default-src 'self'", $csp);
         $this->assertStringContainsString("object-src 'none'", $csp);
         $this->assertStringContainsString("frame-ancestors 'self'", $csp);
-        $this->assertStringContainsString("https://cdn.jsdelivr.net", $csp);
+        $this->assertStringContainsString('https://cdn.jsdelivr.net', $csp);
     }
 
     public function test_legacy_root_controllers_are_removed(): void
@@ -263,7 +263,7 @@ class SecurityRegressionTest extends TestCase
 
     public function test_secure_upload_storage_rejects_unsafe_paths(): void
     {
-        $storage = new SecureUploadStorage();
+        $storage = new SecureUploadStorage;
 
         $this->assertTrue($storage->validPrivatePath('documents/1/file.pdf', ['documents']));
         $this->assertFalse($storage->validPrivatePath('../.env', ['documents']));
@@ -276,7 +276,7 @@ class SecurityRegressionTest extends TestCase
         Storage::fake('local');
         Storage::fake('public');
 
-        $storage = new SecureUploadStorage();
+        $storage = new SecureUploadStorage;
         Storage::disk('local')->put('photos/1/profile.jpg', 'photo');
         Storage::disk('local')->put('documents/1/ktp.pdf', 'document');
 

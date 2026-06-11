@@ -68,9 +68,9 @@ class RegionResource extends Resource
                 ->label('Tipe Wilayah')
                 ->options([
                     'province' => 'Provinsi',
-                    'city'     => 'Kabupaten / Kota',
+                    'city' => 'Kabupaten / Kota',
                     'district' => 'Distrik / Kecamatan',
-                    'village'  => 'Kelurahan / Kampung',
+                    'village' => 'Kelurahan / Kampung',
                 ])
                 ->required()
                 ->native(false),
@@ -113,17 +113,17 @@ class RegionResource extends Resource
                     ->label('Tipe')
                     ->formatStateUsing(fn ($state) => match ($state) {
                         'province' => 'Provinsi',
-                        'city'     => 'Kabupaten/Kota',
+                        'city' => 'Kabupaten/Kota',
                         'district' => 'Distrik/Kecamatan',
-                        'village'  => 'Kelurahan/Kampung',
-                        default    => $state,
+                        'village' => 'Kelurahan/Kampung',
+                        default => $state,
                     })
                     ->badge()
                     ->color(fn ($state) => match ($state) {
                         'province' => 'info',
-                        'city'     => 'success',
+                        'city' => 'success',
                         'district' => 'warning',
-                        default    => 'gray',
+                        default => 'gray',
                     }),
 
                 TextColumn::make('parent.name')
@@ -146,9 +146,9 @@ class RegionResource extends Resource
                     ->label('Tipe Wilayah')
                     ->options([
                         'province' => 'Provinsi',
-                        'city'     => 'Kabupaten/Kota',
+                        'city' => 'Kabupaten/Kota',
                         'district' => 'Distrik/Kecamatan',
-                        'village'  => 'Kelurahan/Kampung',
+                        'village' => 'Kelurahan/Kampung',
                     ]),
                 SelectFilter::make('is_active')
                     ->label('Status')
@@ -169,9 +169,9 @@ class RegionResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => ListRegions::route('/'),
+            'index' => ListRegions::route('/'),
             'create' => CreateRegion::route('/create'),
-            'edit'   => EditRegion::route('/{record}/edit'),
+            'edit' => EditRegion::route('/{record}/edit'),
         ];
     }
 }

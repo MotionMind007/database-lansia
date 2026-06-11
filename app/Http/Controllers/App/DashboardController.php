@@ -189,6 +189,7 @@ class DashboardController extends Controller
                 $answered++;
                 $label = $this->cleanTextValue($value);
                 $counts[$label] = ($counts[$label] ?? 0) + 1;
+
                 continue;
             }
 

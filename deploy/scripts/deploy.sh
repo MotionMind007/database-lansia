@@ -9,7 +9,7 @@ set -e
 # Default branch: main
 #
 # Prerequisites:
-# - Server has PHP 8.3+, Composer, Node.js 20+, npm
+# - Server has PHP 8.4+, Composer, Node.js 20+, npm
 # - /var/www/lansia-papua is the deployment root
 # - Supervisor manages queue workers
 # - Nginx points to /var/www/lansia-papua/current/public
@@ -87,7 +87,7 @@ php artisan queue:restart
 
 # Reload PHP-FPM to pick up OPcache changes
 if command -v systemctl &> /dev/null; then
-    sudo systemctl reload php8.3-fpm 2>/dev/null || true
+    sudo systemctl reload php8.4-fpm 2>/dev/null || true
 fi
 
 # Step 9: Cleanup old releases

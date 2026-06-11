@@ -35,7 +35,7 @@ class AdminPanelProvider extends PanelProvider
             ->favicon(asset('images/logo-papua.svg'))
             ->colors([
                 'primary' => Color::Sky,
-                'gray'    => Color::Slate,
+                'gray' => Color::Slate,
             ])
             ->font('Inter')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')

@@ -3,7 +3,7 @@
 Tanggal audit: 11 Juni 2026  
 Auditor: Codex sebagai senior developer / security reviewer  
 Scope: repository `lansia-papua` pada commit `1a50875` plus perubahan lokal yang sedang ada  
-Stack: Laravel 13.8, Filament 5.6, PHP 8.3, PostgreSQL/SQLite, Redis/database queue, Vite/Tailwind
+Stack: Laravel 13.8, Filament 5.6, PHP 8.4, PostgreSQL/SQLite, Redis/database queue, Vite/Tailwind
 
 ## Ringkasan Eksekutif
 

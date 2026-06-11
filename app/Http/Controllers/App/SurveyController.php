@@ -69,18 +69,21 @@ class SurveyController extends Controller
                         continue;
                     }
                     $gender = $request->rt_gender[$i] ?? null;
-                    if ($gender === 'Laki-laki') $gender = 'male';
-                    elseif ($gender === 'Perempuan') $gender = 'female';
+                    if ($gender === 'Laki-laki') {
+                        $gender = 'male';
+                    } elseif ($gender === 'Perempuan') {
+                        $gender = 'female';
+                    }
 
                     // Pendidikan dari C3 (edu_1, edu_2, ...) — index 1-based
-                    $eduKey = 'edu_' . ($i + 1);
+                    $eduKey = 'edu_'.($i + 1);
                     $education = $request->input($eduKey);
 
                     // KTP dari E6 (ktp_1, ktp_2, ...) — index 1-based
-                    $ktpKey = 'ktp_' . ($i + 1);
+                    $ktpKey = 'ktp_'.($i + 1);
                     $ktpStatus = $this->normalizeKtpStatus($request->input($ktpKey));
 
-                    $occupationKey = 'pek_' . ($i + 1);
+                    $occupationKey = 'pek_'.($i + 1);
                     $occupation = $request->input($occupationKey);
 
                     FamilyMember::create([
@@ -240,18 +243,21 @@ class SurveyController extends Controller
                         continue;
                     }
                     $gender = $request->rt_gender[$i] ?? null;
-                    if ($gender === 'Laki-laki') $gender = 'male';
-                    elseif ($gender === 'Perempuan') $gender = 'female';
+                    if ($gender === 'Laki-laki') {
+                        $gender = 'male';
+                    } elseif ($gender === 'Perempuan') {
+                        $gender = 'female';
+                    }
 
                     // Pendidikan dari C3 (edu_1, edu_2, ...) — index 1-based
-                    $eduKey = 'edu_' . ($i + 1);
+                    $eduKey = 'edu_'.($i + 1);
                     $education = $request->input($eduKey);
 
                     // KTP dari E6 (ktp_1, ktp_2, ...) — index 1-based
-                    $ktpKey = 'ktp_' . ($i + 1);
+                    $ktpKey = 'ktp_'.($i + 1);
                     $ktpStatus = $this->normalizeKtpStatus($request->input($ktpKey));
 
-                    $occupationKey = 'pek_' . ($i + 1);
+                    $occupationKey = 'pek_'.($i + 1);
                     $occupation = $request->input($occupationKey);
 
                     FamilyMember::create([
