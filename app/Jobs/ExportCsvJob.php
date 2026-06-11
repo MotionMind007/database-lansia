@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Http\Controllers\App\ExportController;
+use App\Models\ExportFile;
 use App\Models\SurveyResponse;
 use App\Models\User;
 use App\Notifications\ExportReadyNotification;
@@ -104,6 +105,16 @@ class ExportCsvJob implements ShouldQueue
         Storage::disk($disk)->put($filename, file_get_contents($tempPath));
         unlink($tempPath);
 
-        $user->notify(new ExportReadyNotification($filename, $rowNumber - 1));
+        $rowCount = $rowNumber - 1;
+        $exportFile = ExportFile::create([
+            'user_id' => $user->id,
+            'disk' => $disk,
+            'path' => $filename,
+            'row_count' => $rowCount,
+            'status' => ExportFile::STATUS_READY,
+            'expires_at' => now()->addHours((int) config('exports.download_ttl_hours', 24)),
+        ]);
+
+        $user->notify(new ExportReadyNotification($exportFile->id));
     }
 }

@@ -1,3 +1,2 @@
-# Hapus file export CSV yang lebih dari 7 hari
-# Jalankan sehari sekali jam 03:00
-0 3 * * * find /var/www/lansia-papua/storage/app/private/exports -name "*.csv" -mtime +7 -delete >> /dev/null 2>&1
+# Laravel scheduler already runs exports:prune daily. Use this only when not using schedule:run.
+0 3 * * * cd /var/www/lansia-papua && php artisan exports:prune --delete >> storage/logs/export-cleanup.log 2>&1

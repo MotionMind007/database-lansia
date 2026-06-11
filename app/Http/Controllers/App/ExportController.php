@@ -4,8 +4,8 @@ namespace App\Http\Controllers\App;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\ExportCsvJob;
+use App\Models\ExportFile;
 use App\Models\SurveyResponse;
-use App\Support\SurveyResponseAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -84,28 +84,29 @@ class ExportController extends Controller
             abort(403, 'Link download tidak valid atau sudah expired.');
         }
 
-        $path = $request->query('file');
+        $exportFile = ExportFile::findOrFail((int) $request->query('export'));
         $ownerId = (int) $request->query('user');
-        $disk = config('uploads.private_disk', 'local');
 
-        if (! $path || ! str_starts_with($path, 'exports/') || str_contains($path, '..')) {
-            abort(404);
-        }
-
-        if ($ownerId <= 0 || ! str_starts_with($path, "exports/data_lansia_{$ownerId}_")) {
+        $user = $request->user();
+        if ($ownerId !== (int) $exportFile->user_id) {
             abort(403, 'Link download tidak sesuai dengan pemilik file.');
         }
 
-        $user = $request->user();
-        if (! $user->hasAnyRole(['administrator', 'super admin', 'super_admin']) && $user->id !== $ownerId) {
+        if (! $user->hasAnyRole(['administrator', 'super admin', 'super_admin']) && $user->id !== (int) $exportFile->user_id) {
             abort(403, 'Anda tidak memiliki akses ke file ini.');
         }
 
-        if (! Storage::disk($disk)->exists($path)) {
+        if ($exportFile->status !== ExportFile::STATUS_READY || $exportFile->file_deleted_at || $exportFile->expires_at?->isPast()) {
+            abort(410, 'File export sudah expired.');
+        }
+
+        if (! Storage::disk($exportFile->disk)->exists($exportFile->path)) {
             abort(404);
         }
 
-        return Storage::disk($disk)->download($path, basename($path), [
+        $exportFile->forceFill(['last_downloaded_at' => now()])->save();
+
+        return Storage::disk($exportFile->disk)->download($exportFile->path, basename($exportFile->path), [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }

@@ -7,6 +7,14 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Lansia Papua
+
+Dashboard analitik dan input survey lansia Provinsi Papua.
+
+- Local app: `php artisan serve --host=127.0.0.1 --port=8080`
+- Analytics worker: `php artisan queue:work --queue=analytics,default --tries=3 --timeout=120 --sleep=2`
+- Production notes: [docs/production-operations.md](docs/production-operations.md)
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

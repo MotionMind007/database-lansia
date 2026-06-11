@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\SyncDashboardFacts;
+use App\Models\ExportFile;
 use App\Models\Region;
 use App\Models\Respondent;
 use App\Models\Survey;
@@ -10,6 +11,8 @@ use App\Models\SurveyResponse;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -191,6 +194,71 @@ class CoreWorkflowTest extends TestCase
         $this->actingAs($verifikator)
             ->get(route('app.export', ['format' => 'csv']))
             ->assertForbidden();
+    }
+
+    public function test_signed_export_download_is_bound_to_file_owner(): void
+    {
+        Storage::fake('local');
+
+        $owner = $this->userWithRole('surveyor');
+        $other = $this->userWithRole('surveyor');
+        $admin = $this->userWithRole('administrator');
+        $filePath = "exports/data_lansia_{$owner->id}_20260611.csv";
+
+        Storage::disk('local')->put($filePath, "name\nMaria\n");
+        $exportFile = ExportFile::create([
+            'user_id' => $owner->id,
+            'disk' => 'local',
+            'path' => $filePath,
+            'row_count' => 1,
+            'status' => ExportFile::STATUS_READY,
+            'expires_at' => now()->addHour(),
+        ]);
+
+        $signedUrl = URL::temporarySignedRoute('app.export.download', now()->addHour(), [
+            'export' => $exportFile->id,
+            'user' => $owner->id,
+        ]);
+
+        $this->actingAs($owner)
+            ->get($signedUrl)
+            ->assertOk();
+
+        $this->actingAs($other)
+            ->get($signedUrl)
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->get($signedUrl)
+            ->assertOk();
+    }
+
+    public function test_expired_export_cleanup_deletes_file_but_keeps_audit_record(): void
+    {
+        Storage::fake('local');
+
+        $owner = $this->userWithRole('surveyor');
+        $filePath = "exports/data_lansia_{$owner->id}_expired.csv";
+        Storage::disk('local')->put($filePath, "name\nMaria\n");
+
+        $exportFile = ExportFile::create([
+            'user_id' => $owner->id,
+            'disk' => 'local',
+            'path' => $filePath,
+            'row_count' => 1,
+            'status' => ExportFile::STATUS_READY,
+            'expires_at' => now()->subHour(),
+        ]);
+
+        $this->artisan('exports:prune --delete')
+            ->assertSuccessful();
+
+        Storage::disk('local')->assertMissing($filePath);
+        $this->assertDatabaseHas('export_files', [
+            'id' => $exportFile->id,
+            'status' => ExportFile::STATUS_EXPIRED,
+        ]);
+        $this->assertNotNull($exportFile->fresh()->file_deleted_at);
     }
 
     public function test_admin_can_open_activity_log(): void

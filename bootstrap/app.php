@@ -30,6 +30,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->withoutOverlapping()
                 ->appendOutputTo(storage_path('logs/dashboard-rebuild.log'));
         }
+
+        $schedule->command('exports:prune --delete --grace-hours='.config('exports.cleanup_grace_hours'))
+            ->dailyAt(config('exports.cleanup_schedule_time'))
+            ->withoutOverlapping()
+            ->appendOutputTo(storage_path('logs/export-cleanup.log'));
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [

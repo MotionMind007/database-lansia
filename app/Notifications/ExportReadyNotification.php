@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Models\ExportFile;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\URL;
@@ -11,8 +12,7 @@ class ExportReadyNotification extends Notification
     use Queueable;
 
     public function __construct(
-        private readonly string $filePath,
-        private readonly int $rowCount,
+        private readonly int $exportFileId,
     ) {}
 
     public function via(object $notifiable): array
@@ -22,17 +22,19 @@ class ExportReadyNotification extends Notification
 
     public function toArray(object $notifiable): array
     {
-        // Bind the signed URL to the recipient so a forwarded link is rejected.
-        $expiresAt = now()->addHours(24);
+        $exportFile = ExportFile::findOrFail($this->exportFileId);
+        $expiresAt = $exportFile->expires_at ?? now()->addHours((int) config('exports.download_ttl_hours', 24));
+
         $downloadUrl = URL::temporarySignedRoute('app.export.download', $expiresAt, [
-            'file' => $this->filePath,
+            'export' => $exportFile->id,
             'user' => $notifiable->getKey(),
         ]);
 
         return [
-            'message' => "Export CSV selesai ({$this->rowCount} baris).",
+            'message' => "Export CSV selesai ({$exportFile->row_count} baris).",
             'download_url' => $downloadUrl,
-            'row_count' => $this->rowCount,
+            'export_id' => $exportFile->id,
+            'row_count' => $exportFile->row_count,
             'expires_at' => $expiresAt->toIso8601String(),
             'generated_at' => now()->toIso8601String(),
         ];

@@ -4,6 +4,7 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
+use App\Models\ExportFile;
 use App\Models\Respondent;
 use App\Models\RespondentDocument;
 use App\Models\SurveyResponse;
@@ -338,6 +339,56 @@ Artisan::command('app:production-status {--fail-on-warning}', function (Dashboar
 
     return 0;
 })->purpose('Report production dashboard, queue, and backup readiness status');
+
+Artisan::command('exports:prune {--delete : Delete expired files and mark export records expired} {--grace-hours= : Extra hours after expiry before pruning}', function () {
+    $delete = (bool) $this->option('delete');
+    $graceHours = max(0, (int) ($this->option('grace-hours') ?? config('exports.cleanup_grace_hours', 0)));
+    $expiredBefore = now()->subHours($graceHours);
+    $matched = 0;
+    $deleted = 0;
+
+    ExportFile::query()
+        ->where('status', ExportFile::STATUS_READY)
+        ->whereNull('file_deleted_at')
+        ->whereNotNull('expires_at')
+        ->where('expires_at', '<=', $expiredBefore)
+        ->orderBy('id')
+        ->chunkById(100, function ($exports) use ($delete, &$matched, &$deleted): void {
+            foreach ($exports as $exportFile) {
+                $matched++;
+
+                if (! $delete) {
+                    continue;
+                }
+
+                $removed = ! Storage::disk($exportFile->disk)->exists($exportFile->path)
+                    || Storage::disk($exportFile->disk)->delete($exportFile->path);
+
+                if ($removed) {
+                    $exportFile->forceFill([
+                        'status' => ExportFile::STATUS_EXPIRED,
+                        'file_deleted_at' => now(),
+                    ])->save();
+
+                    $deleted++;
+                }
+            }
+        });
+
+    $this->info('Export cleanup');
+    $this->table(['Metric', 'Value'], [
+        ['Expired records matched', number_format($matched)],
+        ['Files deleted/records expired', number_format($deleted)],
+        ['Mode', $delete ? 'delete' : 'dry-run'],
+        ['Grace hours', (string) $graceHours],
+    ]);
+
+    if (! $delete && $matched > 0) {
+        $this->line('Run with --delete to remove files and mark records expired.');
+    }
+
+    return 0;
+})->purpose('Prune expired generated export files while keeping audit records');
 
 Artisan::command('uploads:prune-orphans {--delete : Delete orphan files instead of reporting only} {--legacy : Also scan the legacy public upload disk}', function (SecureUploadStorage $secureStorage) {
     $delete = (bool) $this->option('delete');

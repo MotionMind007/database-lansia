@@ -69,9 +69,13 @@ COPY --from=assets /build/public/build ./public/build
 # Copy vendor from Composer stage
 COPY --from=composer /deps/vendor ./vendor
 
+# Keep an immutable copy outside the public named volume for runtime sync.
+RUN mkdir -p /opt/lansia-papua-public \
+    && cp -a public/. /opt/lansia-papua-public/
+
 # Set permissions
-RUN chown -R www-data:www-data storage bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache
+RUN chown -R www-data:www-data storage bootstrap/cache public /opt/lansia-papua-public \
+    && chmod -R 775 storage bootstrap/cache public
 
 # Entrypoint script handles runtime config
 COPY deploy/docker/entrypoint.sh /usr/local/bin/entrypoint.sh
