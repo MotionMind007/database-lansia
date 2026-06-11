@@ -77,6 +77,7 @@ class ExportController extends Controller
 
     /**
      * Download a previously generated export file.
+     * Only the file owner or administrator can download.
      */
     public function download(Request $request)
     {
@@ -89,6 +90,15 @@ class ExportController extends Controller
 
         if (! Storage::disk($disk)->exists($path)) {
             abort(404);
+        }
+
+        // Ownership check: filename pattern is exports/data_lansia_{userId}_{timestamp}.csv
+        $user = auth()->user();
+        if (! $user->hasAnyRole(['administrator', 'super admin', 'super_admin'])) {
+            $ownerPattern = 'exports/data_lansia_'.$user->id.'_';
+            if (! str_starts_with($path, $ownerPattern)) {
+                abort(403, 'Anda tidak memiliki akses ke file ini.');
+            }
         }
 
         return Storage::disk($disk)->download($path, basename($path), [

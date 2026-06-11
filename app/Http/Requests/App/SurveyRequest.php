@@ -3,6 +3,7 @@
 namespace App\Http\Requests\App;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 abstract class SurveyRequest extends FormRequest
 {
@@ -14,7 +15,10 @@ abstract class SurveyRequest extends FormRequest
     protected function baseRules(): array
     {
         return [
-            'region_id' => ['required', 'exists:regions,id'],
+            'region_id' => [
+                'required',
+                Rule::exists('regions', 'id')->where('type', 'village')->where('is_active', true),
+            ],
             'interview_date' => ['required', 'date'],
             'full_name' => ['required', 'string', 'max:255'],
             'gender' => ['required', 'in:male,female'],
